@@ -3,9 +3,9 @@ version:             0.1.0.0
 synopsis:            FFI bindings for the primesieve library.
 description:         FFI bindings for the primesieve library.
 homepage:            https://github.com/sighingnow/computations/tree/master/primesieve#readme
-author:              Tao He
+author:              HE, Tao
 maintainer:          sighingnow@gmail.com
-copyright:           Copyright: (c) 2017 Tao He
+copyright:           Copyright: (c) 2017 HE, Tao
 category:            Algorithms, Foreign, Math, Number Theory
 build-type:          Simple
 cabal-version:       >=1.10
