@@ -1,0 +1,23 @@
+module Math.Prime.FastSieve
+    ( generatePrimes
+    , generateNPrimes
+    , nthPrime
+    , countPrimes
+    , countTwins
+    , countTriplets
+    , countQuadruplets
+    , countQuintuplets
+    , countSextuplets
+    , printPrimes
+    , printTwins
+    , printTriplets
+    , printQuadruplets
+    , printQuintuplets
+    , printSextuplets
+    , getMaxStop
+    , setSieveSize
+    , setNumThreads
+    , primesieveVersion
+    ) where
+
+import Math.Prime.FastSieve.FFI
