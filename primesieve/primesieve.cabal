@@ -1,5 +1,5 @@
 name:                primesieve
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            FFI bindings for the primesieve library.
 description:         FFI bindings for the primesieve library.
 homepage:            https://github.com/sighingnow/computations/tree/master/primesieve#readme
@@ -24,6 +24,17 @@ library
                      , OverloadedStrings
   build-depends:       base >= 4.7 && < 5
                      , foundation
+
+executable prime-count
+  hs-source-dirs:      example
+  main-is:             Count.hs
+  default-language:    Haskell2010
+  default-extensions:  NoImplicitPrelude
+                     , OverloadedStrings
+  build-depends:       base >= 4.7 && < 5
+                     , foundation
+                     , primesieve
+  extra-libraries:     primesieve
 
 executable prime-example
   hs-source-dirs:      example
