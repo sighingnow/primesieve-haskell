@@ -15,7 +15,7 @@ library
   hs-source-dirs:      src
   exposed-modules:
     Math.Complex
-    -- Math.Linear.Linalg
+    Math.Linear.Linalg
     Math.Linear.Matrix
     Math.Linear.Matrix.Mutable
   other-modules:

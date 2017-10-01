@@ -9,6 +9,7 @@ import Foreign.Marshal.Alloc (alloca)
 -- import qualified Math.Linear.Matrix.Mutable as MM
 import Math.Complex
 import Math.Linear.Matrix
+import Math.Linear.Linalg
 
 -- app1 :: IO ()
 -- app1 =

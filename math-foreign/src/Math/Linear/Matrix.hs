@@ -98,14 +98,15 @@ import Foundation.Primitive
 
 import GHC.Num (Num)
 import Foreign.Marshal.Alloc (alloca)
+import qualified Foreign.Storable as Foreign.Storable
 import System.IO.Unsafe (unsafePerformIO)
 
 import qualified Math.Linear.Internal as I
 import qualified Math.Linear.Matrix.Mutable as Mutable
 
 data Mat a = M
-    { row :: {-# UNPACK #-}!Int -- ^ rows
-    , column :: {-# UNPACK #-}!Int -- ^ columns
+    { row :: {-# UNPACK #-}!Int32 -- ^ rows
+    , column :: {-# UNPACK #-}!Int32 -- ^ columns
     , vect :: {-# UNPACK #-}!(UArray a) -- ^ data in plain vector.
     } deriving (Eq, Show)
 
@@ -117,7 +118,7 @@ empty = M 0 0 mempty
 
 -- | Verify matrix dimensions and memory layout
 valid :: PrimType a => Mat a -> Bool
-valid M{..} = row >= 0 && column >= 0 && length vect == CountOf (row * column)
+valid M{..} = row >= 0 && column >= 0 && length vect == integralCast (row * column)
 
 {-# INLINE valid #-}
 
@@ -128,20 +129,20 @@ square M{..} = row == column
 {-# INLINE square #-}
 
 -- | Construct a matrix with all zeros.
-zeros :: (PrimType a, Num a) => Int -> Int -> Mat a
+zeros :: (PrimType a, Num a) => Int32 -> Int32 -> Mat a
 zeros r c = replicate' r c 0
 
 {-# INLINE zeros #-}
 
 -- | Construct a matrix with all ones.
-ones :: (PrimType a, Num a) => Int -> Int -> Mat a
+ones :: (PrimType a, Num a) => Int32 -> Int32 -> Mat a
 ones r c = replicate' r c 1
 
 {-# INLINE ones #-}
 
 -- | Construct a identity matrix, square is not required.
 identity :: I.Elem a
-    => Int -> Int -> Mat a
+    => Int32 -> Int32 -> Mat a
 identity r c = unsafePerformIO $ do
     m <- Mutable.zeros r c
     Mutable.unsafeWith m $ \xs r' c' ->
@@ -152,7 +153,7 @@ identity r c = unsafePerformIO $ do
 
 -- | Construct a random matrix.
 random :: I.Elem a
-    => Int -> Int -> IO (Mat a)
+    => Int32 -> Int32 -> IO (Mat a)
 random r c = do
     m <- Mutable.new r c
     Mutable.unsafeWith m $ \xs r' c' ->
@@ -167,9 +168,9 @@ random r c = do
 --
 -- * exchange two rows: /x' = A x/.
 permute :: I.Elem a
-    => Int -- ^ size of matrix, /n x n/.
-    -> Int
-    -> Int
+    => Int32 -- ^ size of matrix, /n x n/.
+    -> Int32
+    -> Int32
     -> Mat a
 permute n i j = unsafePerformIO $ do
     m <- Mutable.identity n n
@@ -183,14 +184,14 @@ permute n i j = unsafePerformIO $ do
 
 -- | Construct a matrix with given constant.
 replicate' :: PrimType a
-    => Int -> Int -> a -> Mat a
-replicate' r c = M r c . replicate (CountOf (r * c))
+    => Int32 -> Int32 -> a -> Mat a
+replicate' r c = M r c . replicate (integralCast (r * c))
 
 {-# INLINE replicate' #-}
 
 -- | Construct matrix with given generate function.
 matrix :: PrimType a
-    => Int -> Int -> (Int -> Int -> a) -> Mat a
+    => Int32 -> Int32 -> (Int32 -> Int32 -> a) -> Mat a
 matrix r c func = fromList' r c [ func i j
                                 | j <- [0 .. c - 1]
                                 , i <- [0 .. r - 1] ]
@@ -201,7 +202,7 @@ matrix r c func = fromList' r c [ func i j
 diag :: I.Elem a
     => UArray a -> Mat a
 diag xs = unsafePerformIO $ do
-    let nlen = fromCount (length xs)
+    let nlen = integralDownsize (length xs)
     m <- Mutable.new nlen nlen
     Mutable.unsafeWith m $ \vect r c ->
         withPtr xs $ \p ->
@@ -212,11 +213,11 @@ diag xs = unsafePerformIO $ do
 
 -- | Construct matrix from given list and size, assume that /row * column == length xs/.
 fromList' :: PrimType a
-    => Int -- ^ rows
-    -> Int -- ^ columns
+    => Int32 -- ^ rows
+    -> Int32 -- ^ columns
     -> [a] -- ^ values
     -> Mat a
-fromList' r c = M r c . fromListN (r * c)
+fromList' r c = M r c . fromListN (integralUpsize $ r * c)
 
 {-# INLINE [1] fromList' #-}
 
@@ -244,15 +245,15 @@ find' predicate = find predicate . vect
 
 -- | Get specified element from matrix.
 at :: PrimType a
-    => Mat a -> (Int, Int) -> Maybe a
-at M{..} (i, j) = vect ! (Offset (i * column + j))
+    => Mat a -> (Int32, Int32) -> Maybe a
+at M{..} (i, j) = vect ! (integralCast (i * column + j))
 
 {-# INLINE at #-}
 
 -- | Unsafely get specified element from matrix.
 at' :: PrimType a
-    => Mat a -> (Int, Int) -> a
-at' M{..} (i, j) = case vect ! (Offset (i * column + j)) of
+    => Mat a -> (Int32, Int32) -> a
+at' M{..} (i, j) = case vect ! (integralCast (i * column + j)) of
                      Just v -> v
                      Nothing -> error "Matrix.at': no such element."
 
@@ -262,7 +263,7 @@ at' M{..} (i, j) = case vect ! (Offset (i * column + j)) of
 diagonal :: I.Elem a
     => Mat a -> UArray a
 diagonal m@M{..} = unsafePerformIO $ do
-    v <- mutNew (CountOf (min row column))
+    v <- mutNew (integralCast (min row column))
     unsafeWith m $ \xs r c ->
         withMutablePtr v $ \p ->
             I.call $ I.diagonal p xs r c
@@ -275,13 +276,13 @@ diagonal m@M{..} = unsafePerformIO $ do
  #-}
 
 -- | Get deminsion of the matrix.
-shape :: Mat a -> (Int, Int)
+shape :: Mat a -> (Int32, Int32)
 shape M{..} = (row, column)
 
 {-# INLINE [1] shape #-}
 
 -- | Reshape a matrix.
-reshape :: Mat a -> (Int, Int) -> Mat a
+reshape :: Mat a -> (Int32, Int32) -> Mat a
 reshape M{..} (r, c)
     | row * column == r * c = M r c vect
     | otherwise = error "Matrix.reshape: total size of new matrix must be unchanged."
@@ -295,7 +296,7 @@ reshape M{..} (r, c)
  #-}
 
 -- | Infix operator of reshape.
-(==>) :: Mat a -> (Int, Int) -> Mat a
+(==>) :: Mat a -> (Int32, Int32) -> Mat a
 (==>) = reshape
 
 infix 8 ==>
@@ -561,7 +562,7 @@ pow :: (I.Elem a, Integral b, Ord b, Num b, IDivisible b)
 pow m@M {..} k
     | row /= column = error "Matrix.pow: a square matrix is needed."
     | k < 0 = error "Matrix.pow: negative exponent is not allowed."
-    | otherwise = go (diag $ replicate (CountOf row) 1) m k
+    | otherwise = go (diag $ replicate (integralCast row) 1) m k
   where
     go r _ 0 = r
     go r a n = go r' a' n'
@@ -576,7 +577,7 @@ pow m@M {..} k
 
 -- | inner product of two specific columns (column i and column j) WITHOUT bounds check.
 inner :: I.Elem a
-    => Mat a -> Int -> Int -> a
+    => Mat a -> Int32 -> Int32 -> a
 inner m i j = unsafePerformIO $
     unsafeWith m $ \xs r c ->
         alloca $ \p -> do
@@ -595,18 +596,9 @@ inner' v1 v2 = unsafePerformIO $
                 I.call $ I.inner p n xs1 1 0 xs2 1 0
                 peek p
   where
-    n = fromCount $ min (length v1) (length v2)
+    n = integralDownsize $ min (length v1) (length v2)
 
 {-# INLINE inner' #-}
-
-det :: I.Elem a => Mat a -> a
-det m = unsafePerformIO $ do
-    unsafeWith m $ \xs r c ->
-      alloca $ \res -> do
-        I.call $ I.det res xs r c
-        peek res
-
-{-# LANGUAGE det #-}
 
 -- | Copy the matrix data and drop extra memory.
 force :: PrimType a => Mat a -> Mat a
@@ -616,7 +608,7 @@ force m@M{..} = matrix row column $ curry (m `at'`)
 
 -- | Pass a pointer to the matrix's data to the IO action. The data may not be modified through the pointer.
 unsafeWith :: (PrimMonad m, I.Elem a)
-    => Mat a -> (Ptr a -> Int -> Int -> m c) -> m c
+    => Mat a -> (Ptr a -> Int32 -> Int32 -> m c) -> m c
 unsafeWith M{..} f = withPtr vect $ \p -> f p row column
 
 {-# INLINE unsafeWith #-}
@@ -638,12 +630,12 @@ unsafeThaw' M{..} = Mutable.M row column <$> unsafeThaw vect
 {-# INLINE unsafeThaw' #-}
 
 -- | Take one matrix as argument and only return a scalar, like sum, mean, max and min.
-unsafeOp :: (I.Elem a, I.Elem b)
+unsafeOp :: (I.Elem a, Foreign.Storable.Storable b, Storable b)
     => (Ptr b -- result ptr, a scalar value.
         -> Ptr a -- matrix operand
-        -> Int -- rows of matrix operand
-        -> Int -- columns of matrix operand
-        -> Int -- CFFI call status code, non-zero means error
+        -> Int32 -- rows of matrix operand
+        -> Int32 -- columns of matrix operand
+        -> Int32 -- CFFI call status code, non-zero means error
       ) -- ^ op function
     -> Mat a -- ^ operand
     -> b
@@ -657,13 +649,13 @@ unsafeOp f m = unsafePerformIO $
 
 -- | Take one matrix as it's argument and return a matrix as result, like transpose and inverse.
 unsafeUnaryOp :: I.Elem a
-    => Int -- ^ target rows
-    -> Int -- ^ target columns
+    => Int32 -- ^ target rows
+    -> Int32 -- ^ target columns
     -> (Ptr a -- ^ result ptr, a matrix
         -> Ptr a -- ^ matrix operand ptr
-        -> Int -- ^ rows of matrix operand
-        -> Int -- ^ columns of matrix operand
-        -> Int -- ^ CFFI call status code, non-zero means error
+        -> Int32 -- ^ rows of matrix operand
+        -> Int32 -- ^ columns of matrix operand
+        -> Int32 -- ^ CFFI call status code, non-zero means error
       ) -- ^ op function
     -> Mat a -- ^ matrix operand
     -> Mat a
@@ -676,15 +668,15 @@ unsafeUnaryOp r c f m = unsafePerformIO $ do
 
 -- | Take two matrices as arguments and return a matrix as result, like dot, add, multiplication.
 unsafeBinaryOp :: I.Elem a
-    => Int -- ^ target rows
-    -> Int -- ^ target columns
+    => Int32 -- ^ target rows
+    -> Int32 -- ^ target columns
     -> (Ptr a -- ^ result ptr, a matrix, with shape /m x n/
-        -> Int -- ^ m
-        -> Int -- ^ n
-        -> Int -- ^ k
+        -> Int32 -- ^ m
+        -> Int32 -- ^ n
+        -> Int32 -- ^ k
         -> Ptr a -- ^ left matrix operand, with shape /m x k/
         -> Ptr a -- ^ right matrix operand, with shape /k x n/
-        -> Int -- ^ CFFI call status code, non-zero means error
+        -> Int32 -- ^ CFFI call status code, non-zero means error
       ) -- ^ op function
     -> Mat a -- ^ left operand
     -> Mat a -- ^ right operand
@@ -702,17 +694,17 @@ unsafeBinaryOp r c f m1 m2 = unsafePerformIO $ do
 -- | Take one matrix as argument and three matrices as result, like LU decomposition, QR decomposition and SVD.
 unsafeDecomposeOp
     :: I.Elem a
-    => (Int, Int) -- ^ size of result 1
-    -> (Int, Int) -- ^ size of result 2
-    -> (Int, Int) -- ^ size of result 3
+    => (Int32, Int32) -- ^ size of result 1
+    -> (Int32, Int32) -- ^ size of result 2
+    -> (Int32, Int32) -- ^ size of result 3
     -> (Ptr a -- ^ result ptr 1, a matrix
-        -> Int -> Int -- ^ size of result 1
+        -> Int32 -> Int32 -- ^ size of result 1
         -> Ptr a -- ^ result ptr 2, a matrix
-        -> Int -> Int -- ^ size of result 2
+        -> Int32 -> Int32 -- ^ size of result 2
         -> Ptr a -- ^ result ptr 3, a matrix
-        -> Int -> Int -- ^ size of result 3
+        -> Int32 -> Int32 -- ^ size of result 3
         -> Ptr a -- ^ matrix operand
-        -> Int -- ^ CFFI call status code, non-zero means error
+        -> Int32 -- ^ CFFI call status code, non-zero means error
       ) -- ^ op function
     -> Mat a -- ^ operand
     -> (Mat a, Mat a, Mat a)
@@ -735,14 +727,14 @@ type instance Element (Mat a) = a
 
 instance PrimType a => IsList (Mat a) where
     type Item (Mat a) = a
-    fromList xs = M 1 (fromCount $ length xs) (fromList xs)
-    fromListN n xs = M 1 n (fromListN n xs)
+    fromList xs = M 1 (integralDownsize $ length xs) (fromList xs)
+    fromListN n xs = M 1 (integralDownsize n) (fromListN n xs)
     toList = toList . vect
 
 instance PrimType a => Collection (Mat a) where
     null M{..} = row == 0 && column == 0
     {-# INLINABLE null #-}
-    length M{..} = CountOf (row * column)
+    length M{..} = integralCast (row * column)
     {-# INLINABLE length #-}
     elem x = elem x . vect
     {-# INLINABLE elem #-}
@@ -757,14 +749,14 @@ instance PrimType a => Collection (Mat a) where
 
 instance PrimType a => MutableCollection (Mutable.MMat a) where
     type MutableFreezed (Mutable.MMat a) = Mat a
-    type MutableKey (Mutable.MMat a) = (Int, Int)
+    type MutableKey (Mutable.MMat a) = (Int32, Int32)
     type MutableValue (Mutable.MMat a) = a
     unsafeThaw (M r c v) = Mutable.M r c <$> unsafeThaw v
     unsafeFreeze (Mutable.M r c v) = M r c <$> unsafeFreeze v
     thaw (M r c v) = Mutable.M r c <$> thaw v
     freeze (Mutable.M r c v) = M r c <$> freeze v
-    mutNew (CountOf c) = Mutable.M c 1 <$> mutNew (CountOf c)
-    mutUnsafeWrite (Mutable.M _ c v) (i, j) = mutUnsafeWrite v (Offset (i * c + j))
-    mutWrite (Mutable.M _ c v) (i, j) = mutWrite v (Offset (i * c + j))
-    mutUnsafeRead (Mutable.M _ c v) (i, j) = mutUnsafeRead v (Offset (i * c + j))
-    mutRead (Mutable.M _ c v) (i, j) = mutRead v (Offset (i * c + j))
+    mutNew c = Mutable.M (integralDownsize c) 1 <$> mutNew c
+    mutUnsafeWrite (Mutable.M _ c v) (i, j) = mutUnsafeWrite v (integralCast (i * c + j))
+    mutWrite (Mutable.M _ c v) (i, j) = mutWrite v (integralCast (i * c + j))
+    mutUnsafeRead (Mutable.M _ c v) (i, j) = mutUnsafeRead v (integralCast (i * c + j))
+    mutRead (Mutable.M _ c v) (i, j) = mutRead v (integralCast (i * c + j))

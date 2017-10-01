@@ -51,8 +51,8 @@ import Foreign.Marshal.Alloc (alloca)
 import qualified Math.Linear.Internal as I
 
 data MMat a s = M
-    { row :: {-# UNPACK #-}!Int -- ^ rows
-    , column :: {-# UNPACK #-}!Int -- ^ columns
+    { row :: {-# UNPACK #-}!Int32 -- ^ rows
+    , column :: {-# UNPACK #-}!Int32 -- ^ columns
     , vect :: MUArray a s -- ^ data in plain vector.
     }
 
@@ -74,28 +74,28 @@ square M{..} = row == column
 
 -- | Construct a new matrix without initialisation.
 new :: (PrimMonad m, PrimType a)
-    => Int -> Int -> m (MMat a (PrimState m))
-new r c = M r c <$> mutNew (CountOf (r * c))
+    => Int32 -> Int32 -> m (MMat a (PrimState m))
+new r c = M r c <$> mutNew (integralCast (r * c))
 
 {-# INLINE new #-}
 
 -- | Construct a matrix with all zeros.
 zeros :: (PrimMonad m, PrimType a, Num a)
-    => Int -> Int -> m (MMat a (PrimState m))
+    => Int32 -> Int32 -> m (MMat a (PrimState m))
 zeros r c = replicate' r c 0
 
 {-# INLINE zeros #-}
 
 -- | Construct a matrix with all ones.
 ones :: (PrimMonad m, PrimType a, Num a)
-    => Int -> Int -> m (MMat a (PrimState m))
+    => Int32 -> Int32 -> m (MMat a (PrimState m))
 ones r c = replicate' r c 1
 
 {-# INLINE ones #-}
 
 -- | Construct a identity matrix, square is not required.
 identity :: I.Elem a
-    => Int -> Int -> IO (IOMat a)
+    => Int32 -> Int32 -> IO (IOMat a)
 identity r c = do
     m <- new r c
     unsafeWith m $ \xs r' c' -> I.call $ I.identity xs r' c'
@@ -105,7 +105,7 @@ identity r c = do
 
 -- | Construct a identity matrix, square is not required.
 random :: I.Elem a
-    => Int -> Int -> IO (IOMat a)
+    => Int32 -> Int32 -> IO (IOMat a)
 random r c = do
     m <- new r c
     unsafeWith m $ \xs r' c' -> I.call' $ I.random_ xs r' c'
@@ -115,14 +115,14 @@ random r c = do
 
 -- | Construct a matrix with all given constants.
 replicate' :: (PrimMonad m, PrimType a)
-    => Int -> Int -> a -> m (MMat a (PrimState m))
-replicate' r c v = M r c <$> unsafeThaw (replicate (CountOf (r * c)) v)
+    => Int32 -> Int32 -> a -> m (MMat a (PrimState m))
+replicate' r c v = M r c <$> unsafeThaw (replicate (integralCast (r * c)) v)
 
 {-# INLINE replicate' #-}
 
 -- | Get specified element from matrix unsafely.
 (!) :: (PrimMonad m, PrimType a)
-    => MMat a (PrimState m) -> (Int, Int) -> m a
+    => MMat a (PrimState m) -> (Int32, Int32) -> m a
 (!) m = uncurry (unsafeRead m)
 
 {-# INLINE (!) #-}
@@ -157,15 +157,15 @@ times x m = do
 
 -- | Read value from matrix.
 read :: (PrimMonad m, PrimType a)
-    => MMat a (PrimState m) -> Int -> Int -> m a
-read M{..} r c = mutRead vect (Offset (r * column + c))
+    => MMat a (PrimState m) -> Int32 -> Int32 -> m a
+read M{..} r c = mutRead vect (integralCast (r * column + c))
 
 {-# INLINE read #-}
 
 -- | Write value to matrix.
 write :: (PrimMonad m, PrimType a)
-    => MMat a (PrimState m) -> Int -> Int -> a -> m ()
-write M{..} r c = mutWrite vect (Offset (r * column + c))
+    => MMat a (PrimState m) -> Int32 -> Int32 -> a -> m ()
+write M{..} r c = mutWrite vect (integralCast (r * column + c))
 
 {-# INLINE write #-}
 
@@ -186,14 +186,14 @@ write M{..} r c = mutWrite vect (Offset (r * column + c))
 -- {-# INLINE modify #-}
 
 unsafeRead :: (PrimMonad m, PrimType a)
-    => MMat a (PrimState m) -> Int -> Int -> m a
-unsafeRead M{..} r c = mutUnsafeRead vect (Offset (r * column + c))
+    => MMat a (PrimState m) -> Int32 -> Int32 -> m a
+unsafeRead M{..} r c = mutUnsafeRead vect (integralCast (r * column + c))
 
 {-# INLINE unsafeRead #-}
 
 unsafeWrite :: (PrimMonad m, PrimType a)
-    => MMat a (PrimState m) -> Int -> Int -> a -> m ()
-unsafeWrite M{..} r c = mutUnsafeWrite vect (Offset (r * column + c))
+    => MMat a (PrimState m) -> Int32 -> Int32 -> a -> m ()
+unsafeWrite M{..} r c = mutUnsafeWrite vect (integralCast (r * column + c))
 
 {-# INLINE unsafeWrite #-}
 
@@ -212,7 +212,7 @@ unsafeWrite M{..} r c = mutUnsafeWrite vect (Offset (r * column + c))
 -- {-# INLINE unsafeModify #-}
 
 unsafeWith :: (PrimMonad m, PrimType a)
-    => MMat a (PrimState m) -> (Ptr a -> Int -> Int -> m b) -> m b
+    => MMat a (PrimState m) -> (Ptr a -> Int32 -> Int32 -> m b) -> m b
 unsafeWith M{..} f = withMutablePtr vect $ \p -> f p row column
 
 {-# INLINE unsafeWith #-}
