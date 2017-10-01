@@ -2,20 +2,40 @@ name:                math-foreign
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/sighingnow/math-foreign#readme
-author:              Tao He
+homepage:            https://github.com/sighingnow/computations/tree/master/math-foreign#readme
+author:              HE, Tao
 maintainer:          sighingnow@gmail.com
-copyright:           Copyright: (c) 2017 Tao He
+copyright:           Copyright: (c) 2017 HE, Tao
 category:            Development
 build-type:          Simple
 cabal-version:       >=1.10
 extra-source-files:  README.md
 
-executable math-foreign
+library
   hs-source-dirs:      src
+  exposed-modules:
+    Math.Complex
+    -- Math.Linear.Linalg
+    Math.Linear.Matrix
+    Math.Linear.Matrix.Mutable
+  other-modules:
+    Math.Linear.Internal
+  default-language:    Haskell2010
+  default-extensions:  NoImplicitPrelude
+                     , OverloadedStrings
+  build-depends:       base >= 4.7 && < 5
+                     , foundation
+  c-sources:           cbits/linear.c
+  include-dirs:        cbits/include/
+  cc-options:          -DDEBUG
+  extra-libraries:	   openblas, lapacke
+
+executable math-foreign
+  hs-source-dirs:      examples
   main-is:             Main.hs
   default-language:    Haskell2010
   default-extensions:  NoImplicitPrelude
                      , OverloadedStrings
   build-depends:       base >= 4.7 && < 5
                      , foundation
+                     , math-foreign
