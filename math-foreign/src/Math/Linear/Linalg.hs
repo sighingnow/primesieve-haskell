@@ -121,7 +121,8 @@ lu m@M {..}
 
 {-# INLINE lu #-}
 
--- | QR decomposition.
+-- | QR decomposition: AP = QR where P is a permutation matrix, Q is a k-by-k (k is min(m, n))
+-- orthogonal matrix, R is an upper trapezoidal matrix.
 qr :: I.Elem a
     => Mat a -> (Mat a, Mat a, Mat a)
 qr m@M {..} = undefined
