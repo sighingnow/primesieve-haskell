@@ -707,8 +707,8 @@ unsafeFactorizeOp
       ) -- ^ op function
     -> (Mat b, Mat c)
 unsafeFactorizeOp m0 (r1, c1) (r2, c2) f = unsafePerformIO $ do
-    m1 <- Mutable.zeros r1 c1
-    m2 <- Mutable.zeros r2 c2
+    m1 <- Mutable.new r1 c1
+    m2 <- Mutable.new r2 c2
     Mutable.unsafeWith m1 $ \vect1 _ _ ->
         Mutable.unsafeWith m2 $ \vect2 _ _ ->
             unsafeWith m0 $ \vect0 r0 c0 -> I.call $ f vect0 r0 c0 vect1 r1 c1 vect2 r2 c2
@@ -737,9 +737,9 @@ unsafeDecomposeOp
       ) -- ^ op function
     -> (Mat b, Mat c, Mat d)
 unsafeDecomposeOp m0 (r1, c1) (r2, c2) (r3, c3) f = unsafePerformIO $ do
-    m1 <- Mutable.zeros r1 c1
-    m2 <- Mutable.zeros r2 c2
-    m3 <- Mutable.zeros r3 c3
+    m1 <- Mutable.new r1 c1
+    m2 <- Mutable.new r2 c2
+    m3 <- Mutable.new r3 c3
     Mutable.unsafeWith m1 $ \vect1 _ _ ->
         Mutable.unsafeWith m2 $ \vect2 _ _ ->
             Mutable.unsafeWith m3 $ \vect3 _ _ ->
