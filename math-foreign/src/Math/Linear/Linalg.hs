@@ -88,30 +88,55 @@ inverse m@M{..} = unsafeUnaryOp row column I.inverse m
 {-# INLINE inverse #-}
 
 -- | Compute the eigenvalues and right eigenvectors of a square matrix.
-eigen :: I.Elem a
-    => Mat a -> Mat a
-eigen m@M{..} = undefined
+--
+--    + For every column vector x in right eigenvectors V, we have Ax = \lambda x.
+--    + For every column vector x in left eigenvectors U, we have x^H * A = \lambda x^H.
+--
+-- Noticing that eigenvectors are stored as column vectors in U^T and V.
+eigen :: (I.Elem a, I.Elem (I.ComplexType a))
+    => Mat a -- ^ square matrix.
+    -> (UArray (I.ComplexType a), Mat (I.ComplexType a), Mat (I.ComplexType a)) -- ^ (\Lambda, UT (Hermitian of left eigenvectors), V (right eigenvectors))
+eigen m@M{..}
+    | row /= column = error "Matrix.eigen can only be applied to square matrix."
+    | otherwise = (lam, ut, v)
+    where ((M _ _ lam), ut, v) = unsafeDecomposeOp m (1, column) (row, column) (row, column) I.eigen
 
 {-# INLINE eigen #-}
 
 -- | Compute the eigenvalues and right eigenvectors of a Hermitian or symmetric matrix.
-eigenh :: I.Elem a
-    => Mat a -> Mat a
-eigenh m@M{..} = undefined
+--
+--  A = V \Lambda V^T (or V^H), V is an orthogonal matrix whose columns are the eigenvectors of A.
+eigenh :: (I.Elem a, I.Elem (I.RealType a))
+    => Mat a -- ^ symmetric matrix A, the upper triangular part of A is used when call lapack routines.
+    -> (UArray (I.RealType a), Mat a) -- ^ The eigenvalues is stored in ascending order,
+                                      -- eigenvalues of symmetric complex matrix is real number.
+eigenh m@M{..}
+    | row /= column = error "Matrix.eigenh can only be applied to square matrix."
+    | otherwise = (lam, v)
+    where ((M _ _ lam), v) = unsafeFactorizeOp m (1, column) (row, column) I.eigenh
 
 {-# INLINE eigenh #-}
 
 -- | Compute the eignevalues of a square matrix.
-eigenvals :: I.Elem a
-    => Mat a -> UArray a
-eigenvals m@M{..} = undefined
+eigenvals :: (I.Elem a, I.Elem (I.ComplexType a))
+    => Mat a
+    -> UArray (I.ComplexType a)
+eigenvals m@M{..}
+    | row /= column = error "Matrix.eigenvals can only be applied to square matrix."
+    | otherwise = lam
+    where ((M _ _ lam), _, _) = unsafeDecomposeOp m (1, column) (0, column) (0, column) I.eigen
 
 {-# INLINE eigenvals #-}
 
 -- | Compute the eignevalues of a Hermitian or symmetric matrix.
-eigenvalsh :: I.Elem a
-    => Mat a -> UArray a
-eigenvalsh m@M{..} = undefined
+eigenvalsh :: (I.Elem a, I.Elem (I.RealType a))
+    => Mat a
+    -> UArray (I.RealType a) -- ^ The eigenvalues is stored in ascending order,
+                             -- eigenvalues of symmetric complex matrix is real number.
+eigenvalsh m@M{..}
+    | row /= column = error "Matrix.eigenvalsh can only be applied to square matrix."
+    | otherwise = lam
+    where ((M _ _ lam), _) = unsafeFactorizeOp m (1, column) (0, 1) I.eigenh
 
 {-# INLINE eigenvalsh #-}
 
@@ -181,7 +206,7 @@ singular M{..} = unsafePerformIO $ do
     arr <- mutNew (integralCast (min row column))
     withMutablePtr arr $ \pr ->
         withPtr vect $ \px ->
-            I.call $ I.svd px row column nullPtr 0 1 pr 1 (min row column) nullPtr 0 2 -- TODO why the last argument `c3` can be set as 1 ?
+            I.call $ I.svd px row column nullPtr 0 1 pr 1 (min row column) nullPtr 0 column
     unsafeFreeze arr
 
 {-# INLINE singular #-}
@@ -203,9 +228,9 @@ cholesky m@M{..} uplo
     | row /= column = error "Cholesky decomposition can only be applied to a symmetric positive-definite matrix."
     | otherwise = unsafePerformIO $ do
         mu <- Mutable.new row column
-        Mutable.unsafeWith mr $ \pr _ _ ->
-            unsafeWith m $ \pm ->
-                I.call $ I.cholesky (castCharToCChar uplo) pm row column pr row column
+        Mutable.unsafeWith mu $ \pr r1 c1 ->
+            unsafeWith m $ \pm r0 c0 ->
+                I.call $ I.cholesky (castCharToCChar uplo) pm r0 c0 pr r1 c1
         unsafeFreeze mu
 
 {-# INLINE cholesky #-}

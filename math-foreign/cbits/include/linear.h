@@ -35,6 +35,11 @@ int rank(int type, int *r, const void *src, int row, int column);
 int norm(int type, void *r, const void *src, int row, int column);
 int inverse(int type, void *r, const void *src, int row, int column);
 
+int eigen(int type, void *A, int r0, int c0, void *Lambda, int r1, int c1, void *UT, int r2, int c2,
+          void *V, int r3, int c3);
+int eigenh(int type, void *A, int r0, int c0, void *Lambda, int r1, int c1, void *Z, int r2,
+           int c2);
+
 int lu(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3, int c3,
        const void *m);
 int qr(int type, void *A, int r0, int c0, void *Q, int r1, int c1, void *R, int r2, int c2);

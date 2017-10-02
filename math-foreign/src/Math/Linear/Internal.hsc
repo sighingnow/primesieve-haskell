@@ -114,6 +114,8 @@ call' status = status >>= \err -> when (err /= 0) $ error ("ffi error, return " 
 #ccall norm,        "Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall inverse,     "Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
 
+#ccall eigen,       "Ptr a -> Int32 -> Int32 -> Ptr (ComplexType a) -> Int32 -> Int32 -> Ptr (ComplexType a) -> Int32 -> Int32 -> Ptr (ComplexType a) -> Int32 -> Int32 -> Int32"
+#ccall eigenh,      "Ptr a -> Int32 -> Int32 -> Ptr (RealType a) -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall lu,          "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
 #ccall qr,          "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall svd,         "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr (RealType a) -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Int32"

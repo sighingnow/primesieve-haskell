@@ -487,9 +487,145 @@ int inverse(int type, void *r, const void *src, int row, int column) {
     return 0;
 }
 
-// Eigen system of ordinary matrix, AX = \Lambda X.
-int eigen(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3, int c3,
-          const void *m) {
+// Eigen system of ordinary matrix.
+//
+//      + For every column vector x in right eigenvectors V, we have Ax = \lambda x.
+//      + For every column vector x in left eigenvectors U, we have x^H * A = \lambda x^H.
+//
+// Noticing that eigenvectors are stored as column vectors in U^T and V.
+//
+// ref: https://software.intel.com/en-us/mkl-developer-reference-c-geev
+int eigen(int type, void *A, int r0, int c0, void *Lambda, int r1, int c1, void *UT, int r2, int c2,
+          void *V, int r3, int c3) {
+    int i, j;
+
+    float *sp = NULL;
+    double *dp = NULL;
+    float complex *cp = NULL;
+    double complex *zp = NULL;
+
+    float complex *s_ut = (float complex *)UT, *s_v = (float complex *)V;
+    double complex *d_ut = (double complex *)UT, *d_v = (double complex *)V;
+
+    float *swr = NULL, *swi = NULL, *svl = NULL, *svr = NULL;
+    double *dwr = NULL, *dwi = NULL, *dvl = NULL, *dvr = NULL;
+
+    assert(r0 == c0);             // square matrix.
+    assert(r1 == 1 && c1 == c0);  // Lambda is a vector.
+    assert(r2 == 0 || r0 == r2 && r0 == r3);
+    assert(r3 == 0 || c0 == c2 && r0 == c3);
+
+    char jobvl = r2 == 0 ? 'N' : 'V';
+    char jobvr = r3 == 0 ? 'N' : 'V';
+
+    debug("eigen is called, jobvl: %c, jobvr: %c.", jobvl, jobvr);
+
+#define MAKE_PROG(T, COPY, MA, V2, V3, V4, V5) \
+    MA = (T *)malloc(r0 * c0 * sizeof(T));     \
+    cblas_##COPY(r0 *c0, (T *)A, 1, MA, 1);
+    MAKE_API(copy, p, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
+#define MAKE_PROG(T, GEEV, MA, WR, WI, VL, VR)                                       \
+    WR = (T *)malloc(r0 * sizeof(T));                                                \
+    WI = (T *)malloc(r0 * sizeof(T));                                                \
+    VL = (T *)malloc(r0 * c0 * sizeof(T));                                           \
+    VR = (T *)malloc(r0 * c0 * sizeof(T));                                           \
+    LAPACKE_##GEEV(CblasRowMajor, jobvl, jobvr, r0, MA, c0, WR, WI, VL, c2, VR, c3); \
+    /* Copy eigenvalues (Lambda) */                                                  \
+    for (i = 0; i < r0; ++i) {                                                       \
+        ((T *)Lambda)[2 * i] = WR[i];                                                \
+        ((T *)Lambda)[2 * i + 1] = WI[i];                                            \
+    }
+    MAKE_API_REAL(geev, p, wr, wi, vl, vr);
+#undef MAKE_PROG
+
+#define MAKE_PROG(T, _IS_ZERO, WI, VL, VR, _UT, _V)                            \
+    /* Copy left and right eigenvectors (UT and V) */                          \
+    for (j = 0; j < r0; ++j) {                                                 \
+        if (_IS_ZERO(WI[j])) { /* eigenvector only has real value */           \
+            for (i = 0; i < r0; ++i) {                                         \
+                _UT[i * c2 + j] = VL[i * c2 + j] + 0. * I;                     \
+                _V[i * c3 + j] = VR[i * c3 + j] + 0. * I;                      \
+            }                                                                  \
+        } else { /* eigenvector has complex value */                           \
+            for (i = 0; i < r0; ++i) {                                         \
+                _UT[i * c2 + j] = VL[i * c2 + j] + VL[i * c2 + j + 1] * I;     \
+                _V[i * c3 + j] = VR[i * c3 + j] + VR[i * c3 + j + 1] * I;      \
+                _UT[i * c2 + j + 1] = VL[i * c2 + j] - VL[i * c2 + j + 1] * I; \
+                _V[i * c3 + j + 1] = VR[i * c3 + j] - VR[i * c3 + j + 1] * I;  \
+            }                                                                  \
+            j += 1; /* IMPORTANT: skip the conjugate eigenvalue */             \
+        }                                                                      \
+    }
+    MAKE_API_REAL(_is_zero, wi, vl, vr, _ut, _v);
+#undef MAKE_PROG
+
+#define MAKE_PROG(T, GEEV, MA, V2, V3, V4, V5) \
+    LAPACKE_##GEEV(CblasRowMajor, jobvl, jobvr, r0, MA, c0, (T *)Lambda, (T *)UT, c2, (T *)V, c3);
+    MAKE_API_COMPLEX(geev, p, NULL, NULL, NULL, NULL);
+#undef MAKE_PROG
+
+#define MAKE_PROG(T, MA, V1, V2, V3, V4, V5) \
+    if (MA != NULL) {                        \
+        free(MA);                            \
+    }
+    MAKE_API(p, NULL, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
+#define MAKE_PROG(T, WR, WI, VL, VR, V4, V5) \
+    if (WR != NULL) {                        \
+        free(WR);                            \
+    }                                        \
+    if (WI != NULL) {                        \
+        free(WI);                            \
+    }                                        \
+    if (VL != NULL) {                        \
+        free(VL);                            \
+    }                                        \
+    if (VR != NULL) {                        \
+        free(VR);                            \
+    }
+    MAKE_API_REAL(wr, wi, vl, vr, NULL, NULL)
+#undef MAKE_PROG
+
+    return 0;
+}
+
+// Eigen system of symmetric matrix: A = Z \Lambda Z^T (or Z^H)
+//
+// Here \Lambda is a diagonal matrix whose diagonal elements are the eigenvalues \lambda_i, and Z is
+// the
+// orthogonal matrix whose columns are the eigenvectors.
+int eigenh(int type, void *A, int r0, int c0, void *Lambda, int r1, int c1, void *Z, int r2,
+           int c2) {
+    int i, j;
+
+    float *sp = NULL;
+    double *dp = NULL;
+    float complex *cp = NULL;
+    double complex *zp = NULL;
+
+    assert(r0 == c0);             // square matrix.
+    assert(r1 == 1 && c1 == c0);  // Lambda is a vector.
+    assert(r2 == 0 || r0 == r2 && c0 == c2);
+
+    char jobz = r2 == 0 ? 'N' : 'V';
+
+    debug("eigenh is called, jobz: %c.", jobz);
+
+#define MAKE_PROG(T, COPY, SYEVD, V2, V3, V4, V5) \
+    cblas_##COPY(r0 *c0, (T *)A, 1, (T *)Z, 1);   \
+    LAPACKE_##SYEVD(CblasRowMajor, jobz, 'U', r0, (T *)Z, c0, Lambda);
+    MAKE_API_REAL(copy, syevd, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
+#define MAKE_PROG(T, COPY, HEEVD, V2, V3, V4, V5) \
+    cblas_##COPY(r0 *c0, (T *)A, 1, (T *)Z, 1);   \
+    LAPACKE_##HEEVD(CblasRowMajor, jobz, 'U', r0, (T *)Z, c0, Lambda);
+    MAKE_API_COMPLEX(copy, heevd, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
     return 0;
 }
 
@@ -660,15 +796,14 @@ int qr(int type, void *A, int r0, int c0, void *Q, int r1, int c1, void *R, int 
     return 0;
 }
 
+// Singular value decomposition: A = U \Sigma V^T (or V^H)
 int svd(int type, void *A, int r0, int c0, void *U, int r1, int c1, void *Sigma, int r2, int c2,
         void *VT, int r3, int c3) {
-
-    char job = (r1 == 0 && r3 == 0) ? 'N' :
-               (r0 != c0 && r1 == c1) ? 'A' : 'S';
+    char job = (r1 == 0 && r3 == 0) ? 'N' : (r0 != c0 && r1 == c1) ? 'A' : 'S';
 
     debug("svd is called, job is %c.", job);
 
-#define MAKE_PROG(T, GESDD, V1, V2, V3, V4, V5)                         \
+#define MAKE_PROG(T, GESDD, V1, V2, V3, V4, V5) \
     LAPACKE_##GESDD(CblasRowMajor, job, r0, c0, (T *)A, c0, Sigma, (T *)U, c1, (T *)VT, c3);
     MAKE_API(gesdd, NULL, NULL, NULL, NULL, NULL)
 #undef MAKE_PROG
@@ -682,14 +817,14 @@ int jordan(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void 
 }
 
 int cholesky(int type, char uplo, void *A, int r0, int c0, void *U, int r1, int c1) {
-    assert(r0 == c0);
+    assert(r0 == c0);  // square matrix.
     assert(r0 == r1);
     assert(c0 == c1);
 
     debug("cholesky is called.");
 
-#define MAKE_PROG(T, COPY, POTRF, V2, V3, V4, V5) \
-    cblas_##COPY(r0 * c0, (const T *)A, 1, (T *)U, 1);                      \
+#define MAKE_PROG(T, COPY, POTRF, V2, V3, V4, V5)     \
+    cblas_##COPY(r0 *c0, (const T *)A, 1, (T *)U, 1); \
     LAPACKE_##POTRF(CblasRowMajor, uplo, r0, (T *)U, c0);
     MAKE_API(copy, potrf, NULL, NULL, NULL, NULL)
 #undef MAKE_PROG

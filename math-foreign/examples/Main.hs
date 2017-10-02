@@ -80,6 +80,19 @@ app8 = do
     putStrLn . show $ vt'
     putStrLn . show $ singular x
 
+app9 :: IO ()
+app9 = do
+    -- let x = fromList' 2 2 [ 1.54818221,  0.42103339, -0.18791299,  0.72404307 ] :: Mat Float
+    let x = fromList' 2 2 [ 4, 3, 7, 9 ] :: Mat Float
+        y = fromList' 2 2 [ 4, 3, 7, 9 ] :: Mat (Complex Float)
+        (lam, ut, v) = eigen x
+    putStrLn . show $ lam
+    -- putStrLn . show $ ut
+    putStrLn . show $ ut
+    putStrLn . show $ v
+    putStrLn . show $ y `dot` v
+    putStrLn . show $ eigenvals x
+
 main :: IO ()
 main = do
-    app8
+    app9
