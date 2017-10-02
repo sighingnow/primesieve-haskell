@@ -20,26 +20,6 @@ extern "C" {
 #define debug(...)
 #endif  // DEBUG
 
-/* max and min */
-#define min(a, b) ((a) < (b) ? (a) : (b))
-#define max(a, b) ((a) > (b) ? (a) : (b))
-
-/* zero test */
-static inline __attribute__((always_inline)) bool s_zero(float x) { return x > -1e-6 && x < 1e-6; }
-
-/* zero test */
-static inline __attribute__((always_inline)) bool d_zero(double x) { return x > -1e-6 && x < 1e-6; }
-
-/* zero test */
-static inline __attribute__((always_inline)) bool c_zero(float complex x) {
-    return crealf(x) > -1e-6 && crealf(x) < 1e-6 && cimagf(x) > -1e-6 && cimagf(x) < 1e-6;
-}
-
-/* zero test */
-static inline __attribute__((always_inline)) bool z_zero(double complex x) {
-    return creal(x) > -1e-6 && creal(x) < 1e-6 && cimag(x) > -1e-6 && cimag(x) < 1e-6;
-}
-
 #define MAKE_API(V0, V1, V2, V3, V4, V5)                                         \
     switch (type) {                                                              \
         case 1:                                                                  \
@@ -77,6 +57,42 @@ static inline __attribute__((always_inline)) bool z_zero(double complex x) {
         default:                                                                 \
             break;                                                               \
     }
+
+/* max and min */
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
+/* zero test */
+static inline __attribute__((always_inline)) bool s_is_zero(float x) {
+    return x > -1e-6 && x < 1e-6;
+}
+
+/* zero test */
+static inline __attribute__((always_inline)) bool d_is_zero(double x) {
+    return x > -1e-6 && x < 1e-6;
+}
+
+/* zero test */
+static inline __attribute__((always_inline)) bool c_is_zero(float complex x) {
+    return crealf(x) > -1e-6 && crealf(x) < 1e-6 && cimagf(x) > -1e-6 && cimagf(x) < 1e-6;
+}
+
+/* zero test */
+static inline __attribute__((always_inline)) bool z_is_zero(double complex x) {
+    return creal(x) > -1e-6 && creal(x) < 1e-6 && cimag(x) > -1e-6 && cimag(x) < 1e-6;
+}
+
+/* constant zero */
+#define s_zero (0.)
+#define d_zero (0.)
+#define c_zero (0. + 0. * I)
+#define z_zero (0. + 0. * I)
+
+/* constant one */
+#define s_one (1.)
+#define d_one (1.)
+#define c_one (1. + 0. * I)
+#define z_one (1. + 0. * I)
 
 int identity(int type, void *r, int m, int n) {
     int i, loop = m > n ? n : m;
@@ -417,13 +433,13 @@ int rank(int type, int *r, const void *src, int row, int column) {
 //
 // step 2: LU factorization by getrf, if singular > 0, then the input matrix is singular.
 
-#define MAKE_PROG(T, COPY, GEQP3, _ZERO, MA, TAU, V5)                   \
+#define MAKE_PROG(T, COPY, GEQP3, _IS_ZERO, MA, TAU, V5)                \
     MA = (T *)malloc(row * column * sizeof(T));                         \
     cblas_##COPY(row *column, (T *)src, 1, MA, 1);                      \
     TAU = (T *)malloc(min(row, column) * sizeof(T));                    \
     LAPACKE_##GEQP3(CblasRowMajor, row, column, MA, column, ipiv, TAU); \
     for (i = 0; i < row && i < column; ++i) {                           \
-        if (!_ZERO(MA[i * column + i])) {                               \
+        if (!_IS_ZERO(MA[i * column + i])) {                            \
             *r += 1;                                                    \
         }                                                               \
     }                                                                   \
@@ -433,7 +449,7 @@ int rank(int type, int *r, const void *src, int row, int column) {
     if (TAU != NULL) {                                                  \
         free(TAU);                                                      \
     }
-    MAKE_API(copy, geqp3, _zero, p, tau, NULL)
+    MAKE_API(copy, geqp3, _is_zero, p, tau, NULL)
 #undef MAKE_PROG
 
     free(ipiv);
@@ -549,40 +565,150 @@ int lu(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3
     return 0;
 }
 
-int qr(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3, int c3,
-       const void *m) {
-    // #define MAKE_PROG(T, V, F) LAPACK_##F(CblasRowMajor, r1, c2, (const T
-    // *)m, c2, (T *)rm1);
-    //     MAKE_API(NULL, geqrf)
-    // #undef MAKE_PROG
+// A = QR
+//
+// The shape of result Q and R decided by the argument (r1, c2) and (r2, c2).
+//
+// + The reduced mode: (equals to numpy's numpy.linalg.qr(src, mode='reduced'))
+//
+//      A: m x n
+//      Q: m x min(m, n) orthogonal matrix, the min(m, n) leading columns forms an orthonormal basis
+//      in the
+//          space spanned by the columns of A.
+//      R: min(m, n) x n upper trapezoidal matrix, when m >= n, R is upper triangular.
+//
+// + The complete mode: (equals to numpy's numpy.linalg.qr(src, mode='complete'))
+//
+//      A: m x n
+//      Q: m x m orthogonal matrix, the min(m, n) leading columns forms an orthonormal basis in the
+//          space spanned by the columns of A.
+//      R: m x n upper trapezoidal matrix, when m >= n, R is upper triangular.
+//
+int qr(int type, void *A, int r0, int c0, void *Q, int r1, int c1, void *R, int r2, int c2) {
+    float *stau = NULL;
+    double *dtau = NULL;
+    float complex *ctau = NULL;
+    double complex *ztau = NULL;
+    float *sp = NULL;
+    double *dp = NULL;
+    float complex *cp = NULL;
+    double complex *zp = NULL;
+
+    int i, j;
+
+    debug("QR decomposition is called.");
+
+// reduced mode:
+//
+//      assert(r0 == r1);
+//      assert(min(r0, c0) == c1);
+//      assert(min(r0, c0) == r2);
+//      assert(c0 == c2);
+
+// complete mode:
+//
+//      assert(r0 == r1);
+//      assert(r0 == c1);
+//      assert(r0 == r2);
+//      assert(c0 == c2);
+
+#define MAKE_PROG(T, COPY, GEQRF, MA, TAU, _ZERO, V5)              \
+    MA = (T *)malloc(r0 * c0 * sizeof(T));                         \
+    cblas_##COPY(r0 *c0, (T *)A, 1, (T *)MA, 1);                   \
+    TAU = (T *)malloc(c0 * sizeof(T));                             \
+    LAPACKE_##GEQRF(CblasRowMajor, r0, c0, (T *)MA, c0, (T *)TAU); \
+    /* initialize as zero */                                       \
+    memset(Q, 0x00, r1 *c1 * sizeof(T));                           \
+    memset(R, 0x00, r2 *c2 * sizeof(T));                           \
+    /* copy Q and R */                                             \
+    for (i = 0; i < r0; ++i) {                                     \
+        j = 0;                                                     \
+        while (j < i) {                                            \
+            ((T *)Q)[i * c1 + j] = ((T *)MA)[i * c0 + j];          \
+            j++;                                                   \
+        }                                                          \
+        while (j < c0) {                                           \
+            ((T *)R)[i * c2 + j] = ((T *)MA)[i * c0 + j];          \
+            j++;                                                   \
+        }                                                          \
+    }
+    MAKE_API(copy, geqrf, p, tau, _zero, NULL)
+#undef MAKE_PROG
+
+/* make Q */
+
+#define MAKE_PROG(T, ORGQR, TAU, V2, V3, V4, V5) \
+    LAPACKE_##ORGQR(CblasRowMajor, r1, c1, min(r0, c0), Q, c1, (T *)TAU);
+    MAKE_API_REAL(orgqr, tau, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
+#define MAKE_PROG(T, UNGQR, TAU, V2, V3, V4, V5) \
+    LAPACKE_##UNGQR(CblasRowMajor, r1, c1, min(r0, c0), Q, c1, (T *)TAU);
+    MAKE_API_COMPLEX(ungqr, tau, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
+#define MAKE_PROG(T, MA, TAU, V2, V3, V4, V5) \
+    if (MA != NULL) {                         \
+        free(MA);                             \
+    }                                         \
+    if (TAU != NULL) {                        \
+        free(TAU);                            \
+    }
+    MAKE_API(p, tau, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
     return 0;
 }
-int svd(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3, int c3,
-        const void *m) {
+
+int svd(int type, void *A, int r0, int c0, void *U, int r1, int c1, void *Sigma, int r2, int c2,
+        void *VT, int r3, int c3) {
+
+    char job = (r1 == 0 && r3 == 0) ? 'N' :
+               (r0 != c0 && r1 == c1) ? 'A' : 'S';
+
+    debug("svd is called, job is %c.", job);
+
+#define MAKE_PROG(T, GESDD, V1, V2, V3, V4, V5)                         \
+    LAPACKE_##GESDD(CblasRowMajor, job, r0, c0, (T *)A, c0, Sigma, (T *)U, c1, (T *)VT, c3);
+    MAKE_API(gesdd, NULL, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
     return 0;
 }
+
 int jordan(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3,
            int c3, const void *m) {
     return 0;
 }
+
 int cholesky(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3,
              int c3, const void *m) {
     return 0;
 }
+
 int schur(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3, int c3,
           const void *m) {
     return 0;
 }
 
-// r = Av
+// Linear transformation: r = Av.
 int transform(int type, void *r, int row, int column, const void *A, const void *v) {
-    //     debug("transform is called: matrix has size (%d, %d).", row, column);
-    // #define MAKE_PROG(T, V, F)                                                 \
-//     cblas_##F(CblasRowMajor, CblasNoTrans, row, column, 1.0, (const T *)A, \
-//               column, (const T *)v, 1, 0.0, (T *)r, 1);
-    //     MAKE_API(NULL, gemv)
-    // #undef MAKE_PROG
-    //     return 0;
+    float salpha = 1., sbeta = 0.;
+    double dalpha = 1., dbeta = 0.;
+    float complex _calpha = 1. + 0. * I, _cbeta = 0. + 0. * I;
+    double complex _zalpha = 1. + 0. * I, _zbeta = 0. + 0. * I;
+    float complex *calpha = &_calpha, *cbeta = &_cbeta;
+    double complex *zalpha = &_zalpha, *zbeta = &_zbeta;
+
+    debug("transform is called: matrix has size (%d, %d).", row, column);
+
+#define MAKE_PROG(T, GEMV, ALPHA, BETA, V3, V4, V5)                                     \
+    cblas_##GEMV(CblasRowMajor, CblasNoTrans, row, column, ALPHA, (const T *)A, column, \
+                 (const T *)v, 1, BETA, (T *)r, 1);
+    MAKE_API(gemv, alpha, beta, NULL, NULL, NULL)
+#undef MAKE_PROG
+
+    return 0;
 }
 
 #if defined(__cplusplus)

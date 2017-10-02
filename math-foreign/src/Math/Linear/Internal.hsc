@@ -12,6 +12,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+-- {-# LANGUAGE UndecidableSuperClasses #-}
 
 module Math.Linear.Internal where
 
@@ -35,23 +37,39 @@ import Math.Complex
 -- Matrix element type classes constraints.
 ------------------------------------------------------------------------------}
 
-class (PrimType a, Num a, Storable a, Foreign.Storable.Storable a) => Elem a where
+class ( PrimType a
+      , Num a
+      , Storable a
+      , Foreign.Storable.Storable a
+      ) => Elem a where
+    -- | Corresponding real type of given complex type.
+    type RealType a :: *
+    -- | Corresponding complex form of given real type.
+    type ComplexType a :: *
     -- | Encode type into integer and tranfer it to C library.
     typeid :: a -> Int
 
 instance Elem Float where
+    type RealType Float = Float
+    type ComplexType Float = Complex Float
     typeid _ = 1
     {-# INLINE typeid #-}
 
 instance Elem Double where
+    type RealType Double = Double
+    type ComplexType Double = Complex Double
     typeid _ = 2
     {-# INLINE typeid #-}
 
 instance Elem (Complex Float) where
+    type RealType (Complex Float) = Float
+    type ComplexType (Complex Float) = Complex Float
     typeid _ = 3
     {-# INLINE typeid #-}
 
 instance Elem (Complex Double) where
+    type RealType (Complex Double) = Double
+    type ComplexType (Complex Double) = Complex Double
     typeid _ = 4
     {-# INLINE typeid #-}
 
@@ -71,7 +89,7 @@ call' status = status >>= \err -> when (err /= 0) $ error ("ffi error, return " 
 -- Foreign function imports via hsc2hs.
 ------------------------------------------------------------------------------}
 
-#let ccall name, args = "foreign import ccall unsafe \"linear.h %s\" c_%s :: Int -> %s\n%s :: forall a . Elem a => %s\n%s = c_%s (typeid (undefined :: a))\n{-# INLINE %s #-}", #name, #name, args, #name, args, #name, #name, #name
+#let ccall name, args = "foreign import ccall unsafe \"linear.h %s\" c_%s :: Int -> %s\n%s :: forall a. Elem a => %s\n%s = c_%s (typeid (undefined :: a))\n{-# INLINE %s #-}", #name, #name, args, #name, args, #name, #name, #name
 
 #ccall identity,    "Ptr a -> Int32 -> Int32 -> Int32"
 #ccall random_,     "Ptr a -> Int32 -> Int32 -> IO Int32"
@@ -103,8 +121,8 @@ call' status = status >>= \err -> when (err /= 0) $ error ("ffi error, return " 
 #ccall inverse,     "Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
 
 #ccall lu,          "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
-#ccall qr,          "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
-#ccall svd,         "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
+#ccall qr,          "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Int32"
+#ccall svd,         "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr (RealType a) -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall jordan,      "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
 #ccall cholesky,    "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
 #ccall schur,       "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"

@@ -691,31 +691,59 @@ unsafeBinaryOp r c f m1 m2 = unsafePerformIO $ do
 
 {-# INLINE unsafeBinaryOp #-}
 
--- | Take one matrix as argument and three matrices as result, like LU decomposition, QR decomposition and SVD.
-unsafeDecomposeOp
-    :: I.Elem a
-    => (Int32, Int32) -- ^ size of result 1
+-- | Take one matrix as argument and two matrices as result, like QR factorization.
+unsafeFactorizeOp
+    :: (I.Elem a, I.Elem b, I.Elem c)
+    => Mat a -- ^ matrix to decompose
+    -> (Int32, Int32) -- ^ size of result 1
     -> (Int32, Int32) -- ^ size of result 2
-    -> (Int32, Int32) -- ^ size of result 3
-    -> (Ptr a -- ^ result ptr 1, a matrix
+    -> (Ptr a -- ^ matrix operand
+        -> Int32 -> Int32 -- ^ size of operand
+        -> Ptr b -- ^ result ptr 1, a matrix
         -> Int32 -> Int32 -- ^ size of result 1
-        -> Ptr a -- ^ result ptr 2, a matrix
+        -> Ptr c -- ^ result ptr 2, a matrix
         -> Int32 -> Int32 -- ^ size of result 2
-        -> Ptr a -- ^ result ptr 3, a matrix
-        -> Int32 -> Int32 -- ^ size of result 3
-        -> Ptr a -- ^ matrix operand
         -> Int32 -- ^ CFFI call status code, non-zero means error
       ) -- ^ op function
-    -> Mat a -- ^ operand
-    -> (Mat a, Mat a, Mat a)
-unsafeDecomposeOp (r1, c1) (r2, c2) (r3, c3) f m = unsafePerformIO $ do
+    -> (Mat b, Mat c)
+unsafeFactorizeOp m0 (r1, c1) (r2, c2) f = unsafePerformIO $ do
+    m1 <- Mutable.zeros r1 c1
+    m2 <- Mutable.zeros r2 c2
+    Mutable.unsafeWith m1 $ \vect1 _ _ ->
+        Mutable.unsafeWith m2 $ \vect2 _ _ ->
+            unsafeWith m0 $ \vect0 r0 c0 -> I.call $ f vect0 r0 c0 vect1 r1 c1 vect2 r2 c2
+    m1' <- unsafeFreeze m1
+    m2' <- unsafeFreeze m2
+    return (m1', m2')
+
+{-# INLINE unsafeFactorizeOp #-}
+
+-- | Take one matrix as argument and three matrices as result, like LU decomposition and SVD decomposition.
+unsafeDecomposeOp
+    :: (I.Elem a, I.Elem b, I.Elem c, I.Elem d)
+    => Mat a -- ^ matrix to decompose
+    -> (Int32, Int32) -- ^ size of result 1
+    -> (Int32, Int32) -- ^ size of result 2
+    -> (Int32, Int32) -- ^ size of result 3
+    -> (Ptr a -- ^ matrix operand
+        -> Int32 -> Int32 -- ^ size of operand
+        -> Ptr b -- ^ result ptr 1, a matrix
+        -> Int32 -> Int32 -- ^ size of result 1
+        -> Ptr c -- ^ result ptr 2, a matrix
+        -> Int32 -> Int32 -- ^ size of result 2
+        -> Ptr d -- ^ result ptr 3, a matrix
+        -> Int32 -> Int32 -- ^ size of result 3
+        -> Int32 -- ^ CFFI call status code, non-zero means error
+      ) -- ^ op function
+    -> (Mat b, Mat c, Mat d)
+unsafeDecomposeOp m0 (r1, c1) (r2, c2) (r3, c3) f = unsafePerformIO $ do
     m1 <- Mutable.zeros r1 c1
     m2 <- Mutable.zeros r2 c2
     m3 <- Mutable.zeros r3 c3
     Mutable.unsafeWith m1 $ \vect1 _ _ ->
         Mutable.unsafeWith m2 $ \vect2 _ _ ->
             Mutable.unsafeWith m3 $ \vect3 _ _ ->
-                unsafeWith m $ \xs _ _ -> I.call $ f vect1 r1 c1 vect2 r2 c2 vect3 r3 c3 xs
+                unsafeWith m0 $ \vect0 r0 c0 -> I.call $ f vect0 r0 c0 vect1 r1 c1 vect2 r2 c2 vect3 r3 c3
     m1' <- unsafeFreeze m1
     m2' <- unsafeFreeze m2
     m3' <- unsafeFreeze m3
