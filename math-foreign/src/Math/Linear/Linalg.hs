@@ -44,12 +44,13 @@ import Foundation.Array.Internal (withPtr, withMutablePtr)
 import Foundation.Foreign
 import Foundation.Primitive
 
+import Foreign.C.String (castCharToCChar)
 import Foreign.Ptr (nullPtr)
 import System.IO.Unsafe (unsafePerformIO)
 
 import qualified Math.Linear.Internal as I
-import qualified Math.Linear.Matrix as M
-import Math.Linear.Matrix (Mat(..), unsafeOp, unsafeUnaryOp, unsafeFactorizeOp, unsafeDecomposeOp)
+import qualified Math.Linear.Matrix.Mutable as Mutable
+import Math.Linear.Matrix (Mat(..), unsafeWith, unsafeOp, unsafeUnaryOp, unsafeFactorizeOp, unsafeDecomposeOp)
 
 -- | Matrix determinant.
 det :: I.Elem a
@@ -192,10 +193,20 @@ jordan m@M {..} = undefined
 
 {-# INLINE jordan #-}
 
--- | Cholesky decomposition.
+-- | Cholesky decomposition: A = U^T U for real data and A = U^H U for complex data, where U is a upper/lower triangular matrix.
+-- A must be a symmetric positive-definite matrix (but not checked).
 cholesky :: I.Elem a
-    => Mat a -> (Mat a, Mat a, Mat a)
-cholesky m@M {..} = undefined
+    => Mat a
+    -> Char   -- ^ 'U' for upper triangular matrix and 'L' for lower triangular matrix.
+    -> Mat a  -- ^ an upper/lower triangular matrix.
+cholesky m@M{..} uplo
+    | row /= column = error "Cholesky decomposition can only be applied to a symmetric positive-definite matrix."
+    | otherwise = unsafePerformIO $ do
+        mu <- Mutable.new row column
+        Mutable.unsafeWith mr $ \pr _ _ ->
+            unsafeWith m $ \pm ->
+                I.call $ I.cholesky (castCharToCChar uplo) pm row column pr row column
+        unsafeFreeze mu
 
 {-# INLINE cholesky #-}
 
@@ -212,7 +223,7 @@ transform :: I.Elem a
 transform m@M {..} v = unsafePerformIO $ do
     v' <- mutNew (integralCast row)
     withMutablePtr v' $ \xr ->
-        M.unsafeWith m $ \xs r c ->
+        unsafeWith m $ \xs r c ->
             withPtr v $ \xv ->
                 I.call $ I.transform xr r c xs xv
     unsafeFreeze v'

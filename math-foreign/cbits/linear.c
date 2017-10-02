@@ -681,8 +681,19 @@ int jordan(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void 
     return 0;
 }
 
-int cholesky(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3,
-             int c3, const void *m) {
+int cholesky(int type, char uplo, void *A, int r0, int c0, void *U, int r1, int c1) {
+    assert(r0 == c0);
+    assert(r0 == r1);
+    assert(c0 == c1);
+
+    debug("cholesky is called.");
+
+#define MAKE_PROG(T, COPY, POTRF, V2, V3, V4, V5) \
+    cblas_##COPY(r0 * c0, (const T *)A, 1, (T *)U, 1);                      \
+    LAPACKE_##POTRF(CblasRowMajor, uplo, r0, (T *)U, c0);
+    MAKE_API(copy, potrf, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+
     return 0;
 }
 

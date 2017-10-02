@@ -42,8 +42,7 @@ int svd(int type, void *A, int r0, int c0, void *U, int r1, int c1, void *Sigma,
         void *VT, int r3, int c3);
 int jordan(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3,
            int c3, const void *m);
-int cholesky(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3,
-             int c3, const void *m);
+int cholesky(int type, char uplo, void *A, int r0, int c0, void *U, int r1, int c1);
 int schur(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *rm3, int r3, int c3,
           const void *m);
 

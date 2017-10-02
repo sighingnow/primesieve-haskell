@@ -13,14 +13,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
--- {-# LANGUAGE UndecidableSuperClasses #-}
 
 module Math.Linear.Internal where
-
--- import           Control.Monad    ( when )
--- import           Data.Complex     ( Complex(..) )
--- import           Foreign.Ptr
--- import           Foreign.Storable
 
 import Foundation
 import Foundation.Class.Storable
@@ -124,7 +118,7 @@ call' status = status >>= \err -> when (err /= 0) $ error ("ffi error, return " 
 #ccall qr,          "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall svd,         "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr (RealType a) -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall jordan,      "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
-#ccall cholesky,    "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
+#ccall cholesky,    "CChar -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall schur,       "Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32 -> Int32 -> Ptr a -> Int32"
 
 #ccall transform,   "Ptr a -> Int32 -> Int32 -> Ptr a -> Ptr a -> Int32"
