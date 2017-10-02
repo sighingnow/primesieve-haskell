@@ -116,7 +116,7 @@ random r c = do
 -- | Construct a matrix with all given constants.
 replicate' :: (PrimMonad m, PrimType a)
     => Int32 -> Int32 -> a -> m (MMat a (PrimState m))
-replicate' r c v = M r c <$> unsafeThaw (replicate (integralCast (r * c)) v)
+replicate' r c v = M r c <$> thaw (replicate (integralCast (r * c)) v)
 
 {-# INLINE replicate' #-}
 
