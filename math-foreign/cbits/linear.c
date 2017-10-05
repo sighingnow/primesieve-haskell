@@ -20,21 +20,21 @@ extern "C" {
 #define debug(...)
 #endif  // DEBUG
 
-#define MAKE_API(V0, V1, V2, V3, V4, V5)                                         \
-    switch (type) {                                                              \
-        case 1:                                                                  \
-            MAKE_PROG(float, s##V0, s##V1, s##V2, s##V3, s##V4, s##V5);          \
-            break;                                                               \
-        case 2:                                                                  \
-            MAKE_PROG(double, d##V0, d##V1, d##V2, d##V3, d##V4, d##V5);         \
-            break;                                                               \
-        case 3:                                                                  \
-            MAKE_PROG(float complex, c##V0, c##V1, c##V2, c##V3, c##V4, c##V5);  \
-            break;                                                               \
-        case 4:                                                                  \
-            MAKE_PROG(double complex, z##V0, z##V1, z##V2, z##V3, z##V4, z##V5); \
-        default:                                                                 \
-            break;                                                               \
+#define MAKE_API(V0, V1, V2, V3, V4, V5)                                        \
+    switch (type) {                                                             \
+        case 1:                                                                 \
+            MAKE_PROG(float, s##V0, s##V1, s##V2, s##V3, s##V4, s##V5)          \
+            break;                                                              \
+        case 2:                                                                 \
+            MAKE_PROG(double, d##V0, d##V1, d##V2, d##V3, d##V4, d##V5)         \
+            break;                                                              \
+        case 3:                                                                 \
+            MAKE_PROG(float complex, c##V0, c##V1, c##V2, c##V3, c##V4, c##V5)  \
+            break;                                                              \
+        case 4:                                                                 \
+            MAKE_PROG(double complex, z##V0, z##V1, z##V2, z##V3, z##V4, z##V5) \
+        default:                                                                \
+            break;                                                              \
     }
 
 #define MAKE_API_REAL(V0, V1, V2, V3, V4, V5)                            \
