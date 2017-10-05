@@ -6,12 +6,12 @@
 #include <time.h>
 #include "linear.h"
 
-#include <cblas.h>
-#include <lapacke.h>
-
 #if defined(__cplusplus)
 extern "C" {
 #endif  // __cplusplus
+
+#include <cblas.h>
+#include <lapacke.h>
 
 #if defined(DEBUG)
 #include <stdio.h>
