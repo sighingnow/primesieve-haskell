@@ -33,6 +33,7 @@ extern "C" {
             break;                                                              \
         case 4:                                                                 \
             MAKE_PROG(double complex, z##V0, z##V1, z##V2, z##V3, z##V4, z##V5) \
+            break;                                                              \
         default:                                                                \
             break;                                                              \
     }
