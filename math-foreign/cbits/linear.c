@@ -27,6 +27,7 @@ extern "C" {
             break;                                                               \
         case 2:                                                                  \
             MAKE_PROG(double, d##V0, d##V1, d##V2, d##V3, d##V4, d##V5);         \
+            break;                                                               \
         case 3:                                                                  \
             MAKE_PROG(float complex, c##V0, c##V1, c##V2, c##V3, c##V4, c##V5);  \
             break;                                                               \
