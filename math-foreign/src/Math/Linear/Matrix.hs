@@ -12,7 +12,10 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Math.Linear.Matrix where
+module Math.Linear.Matrix
+  ( I.Elem(..)
+  , module Math.Linear.Matrix
+  ) where
   -- ( Mat(..)
   --  -- * Constructors.
   -- , zeros
@@ -452,7 +455,7 @@ upper m@M{..} = unsafeUnaryOp row column I.upper m
 
 -- | The sum of all coefficients of the matrix
 sum :: I.Elem a => Mat a -> a
-sum = unsafeOp I.sum -- V.sum . vect
+sum = unsafeOp I.sum
 
 {-# INLINE sum #-}
 
@@ -576,6 +579,9 @@ pow m@M {..} k
 {-# INLINE pow #-}
 
 -- | inner product of two specific columns (column i and column j) WITHOUT bounds check.
+--
+--    * For real vector, r = x^T y
+--    * For complex vector, r = x^H y
 inner :: I.Elem a
     => Mat a -> Int32 -> Int32 -> a
 inner m i j = unsafePerformIO $
@@ -613,22 +619,6 @@ unsafeWith M{..} f = withPtr vect $ \p -> f p row column
 
 {-# INLINE unsafeWith #-}
 
--- | Unsafe convert a mutable matrix to an immutable one without copying.
--- The mutable matrix may not be used after this operation.
-unsafeFreeze' :: (PrimMonad m, I.Elem a)
-    => Mutable.MMat a (PrimState m) -> m (Mat a)
-unsafeFreeze' Mutable.M{..} = M row column <$> unsafeFreeze vect
-
-{-# INLINE unsafeFreeze' #-}
-
--- | Unsafely convert an immutable matrix to a mutable one without copying.
--- The immutable matrix may not be used after this operation.
-unsafeThaw' :: (PrimMonad m, I.Elem a)
-    => Mat a -> m (Mutable.MMat a (PrimState m))
-unsafeThaw' M{..} = Mutable.M row column <$> unsafeThaw vect
-
-{-# INLINE unsafeThaw' #-}
-
 -- | Take one matrix as argument and only return a scalar, like sum, mean, max and min.
 unsafeOp :: (I.Elem a, Foreign.Storable.Storable b, Storable b)
     => (Ptr b -- result ptr, a scalar value.
@@ -660,7 +650,7 @@ unsafeUnaryOp :: I.Elem a
     -> Mat a -- ^ matrix operand
     -> Mat a
 unsafeUnaryOp r c f m = unsafePerformIO $ do
-    m' <- Mutable.zeros r c
+    m' <- Mutable.new r c
     Mutable.unsafeWith m' $ \xs' _ _ -> unsafeWith m $ \xs u v -> I.call $ f xs' xs u v
     unsafeFreeze m'
 
@@ -687,7 +677,7 @@ unsafeBinaryOp r c f m1 m2 = unsafePerformIO $ do
     \vect0 m n ->
       unsafeWith m1 $
         \vect1 _ k -> unsafeWith m2 $ \vect2 _ _ -> I.call $ f vect0 m n k vect1 vect2
-  unsafeFreeze' m0
+  unsafeFreeze m0
 
 {-# INLINE unsafeBinaryOp #-}
 
