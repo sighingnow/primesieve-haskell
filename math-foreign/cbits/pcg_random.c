@@ -8,7 +8,7 @@ extern "C" {
 #include "pcg_random.h"
 
 uint32_t pcg32_random_float() {
-    return ldexp(pcg32_random(), -32);
+    return ldexpf((float)pcg32_random(), -32);
 }
 
 void pcg32_random_array(uint32_t nlen, uint32_t *r) {
@@ -21,7 +21,7 @@ void pcg32_random_array(uint32_t nlen, uint32_t *r) {
 void pcg32_random_float_array(uint32_t nlen, float *r) {
     uint32_t i = 0;
     for (i = 0; i < nlen; ++i) {
-        r[i] = ldexp(pcg32_random(), -32);
+        r[i] = ldexpf((float)pcg32_random(), -32);
     }
 }
 
