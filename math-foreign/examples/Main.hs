@@ -6,7 +6,6 @@ import Foundation
 import qualified Math.Linear.Matrix.Mutable as MM
 import Math.Complex
 import Math.Linear.Matrix
-import qualified Math.Linear.Matrix as M
 import Math.Linear.Linalg
 
 app2 :: IO ()
@@ -24,12 +23,12 @@ app2 = do
 
 app4 :: IO ()
 app4 = do
-    let a = M.identity 4 4 :: M.Mat Float
+    let a = identity 4 4 :: Mat Float
     putStrLn . show $ a
-    putStrLn . show $ (a `add` a)
-    let d = M.dot a a
+    putStrLn . show $ a `add` a
+    let d = dot a a
     putStrLn . show $ d
-    putStrLn . show $ (M.dot a a)
+    putStrLn . show $ a `dot` a
 
 app5 :: IO ()
 app5 = do

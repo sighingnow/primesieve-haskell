@@ -53,6 +53,8 @@ int schur(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *
 
 int transform(int type, void *r, int row, int column, const void *A, const void *v);
 
+int linspace(int type, void *r, float const start, float const end, int size);
+
 #if defined(__cplusplus)
 }
 #endif  // __cplusplus

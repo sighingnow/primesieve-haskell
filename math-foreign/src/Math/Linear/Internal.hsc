@@ -125,6 +125,8 @@ call' status = status >>= \err -> when (err /= 0) $ error ("ffi error, return " 
 
 #ccall transform,   "Ptr a -> Int32 -> Int32 -> Ptr a -> Ptr a -> Int32"
 
+#ccall linspace,    "Ptr a -> Float -> Float -> Int32 -> Int32"
+
 {------------------------------------------------------------------------------
 -- Orphan instances for Int32
 ------------------------------------------------------------------------------}

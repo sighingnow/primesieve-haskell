@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "linear.h"
+
+#include "include/linear.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -253,13 +254,16 @@ int shift(int type, void *r, void *x, const void *src, int row, int column) {
 }
 
 int times(int type, void *r, void *x, const void *src, int row, int column) {
-    int i;
+    float sscalar = *((float *)x);
+    double dscalar = *((double *)x);
+    float complex *cscalar = (float complex *)x;
+    double complex *zscalar = (double complex *)x;
+
     debug("times is called.");
-#define MAKE_PROG(T, V0, V1, V2, V3, V4, V5)   \
-    for (i = 0; i < row * column; ++i) {       \
-        ((T *)r)[i] = ((T *)src)[i] * *(T *)x; \
-    }
-    MAKE_API(NULL, NULL, NULL, NULL, NULL, NULL);
+#define MAKE_PROG(T, AXPY, SCALAR, V2, V3, V4, V5)   \
+    memset(r, 0x00, row * column * sizeof(T));  \
+    cblas_##AXPY(row * column, SCALAR, (T *)src, 1, (T *)r, 1);
+    MAKE_API(axpy, scalar, NULL, NULL, NULL, NULL);
 #undef MAKE_PROG
     return 0;
 }
@@ -292,7 +296,7 @@ int minus(int type, void *r, int m, int n, int k, const void *A, const void *B) 
 
 int mult(int type, void *r, int m, int n, int k, const void *A, const void *B) {
     int i, loop = m * n;
-    assert(m * k == k * n);
+    assert(m == n && k == n);
     debug("mult is called.");
 #define MAKE_PROG(T, V0, V1, V2, V3, V4, V5)     \
     for (i = 0; i < loop; ++i) {                 \
@@ -305,7 +309,7 @@ int mult(int type, void *r, int m, int n, int k, const void *A, const void *B) {
 
 int division(int type, void *r, int m, int n, int k, const void *A, const void *B) {
     int i, loop = m * n;
-    assert(m * k == k * n);
+    assert(m == n && k == n);
     debug("division is called.");
 #define MAKE_PROG(T, V0, V1, V2, V3, V4, V5)     \
     for (i = 0; i < loop; ++i) {                 \
@@ -854,6 +858,32 @@ int transform(int type, void *r, int row, int column, const void *A, const void 
     cblas_##GEMV(CblasRowMajor, CblasNoTrans, row, column, ALPHA, (const T *)A, column, \
                  (const T *)v, 1, BETA, (T *)r, 1);
     MAKE_API(gemv, alpha, beta, NULL, NULL, NULL)
+#undef MAKE_PROG
+
+    return 0;
+}
+
+// Linear array generation.
+int linspace(int type, void *r, float const start, float const end, int size) {
+    float sep = (end - start) / (size - 1);
+
+    float ssep = sep;
+    double dsep = (double)sep;
+    float complex csep = sep + 0. * I;
+    double complex zsep = (double)sep + 0. * I;
+
+    float sval = start;
+    double dval = (double)start;
+    float complex cval = start + 0. * I;
+    double complex zval = (double)start + 0. * I;
+
+    int i;
+
+#define MAKE_PROG(T, SEP, VAL, V2, V3, v4, V5) \
+    for (i = 0; i < size; ++i, VAL += SEP) { \
+        ((T *)r)[i] = VAL; \
+    }
+    MAKE_API(sep, val, NULL, NULL, NULL, NULL);
 #undef MAKE_PROG
 
     return 0;
