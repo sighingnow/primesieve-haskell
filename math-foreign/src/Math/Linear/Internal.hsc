@@ -21,6 +21,7 @@ import Foundation.Class.Storable
 import Foundation.Foreign
 import Foundation.Primitive
 
+import qualified Prelude (fromInteger)
 import Control.Monad (when)
 import GHC.Num (Num)
 import qualified Foreign.Storable as Foreign.Storable
@@ -150,3 +151,11 @@ instance IntegralDownsize (Offset a) Int32 where
     {-# INLINE integralDownsize #-}
     integralDownsizeCheck (Offset x) = integralDownsizeCheck x
     {-# INLINE integralDownsizeCheck #-}
+
+instance IntegralCast Integer (CountOf a) where
+    integralCast = CountOf . Prelude.fromInteger
+    {-# INLINE integralCast #-}
+
+instance IntegralCast Integer (Offset a) where
+    integralCast = Offset . Prelude.fromInteger
+    {-# INLINE integralCast #-}

@@ -212,6 +212,28 @@ int transpose(int type, void *r, const void *src, int row, int column) {
     return 0;
 }
 
+int conjugate(int type, void *r, const void *src, int row, int column) {
+    int i, j;
+    debug("conjugate is called.");
+#define MAKE_PROG(T, V0, V1, V2, V3, V4, V5)                       \
+    for (i = 0; i < row; ++i) {                                    \
+        for (j = 0; j < column; ++j) {                              \
+            ((T *)r)[j * row + i] = creal(((T *)src)[i * column + j]) \
+                                  - cimag(((T *)src)[i * column + j]) * I; \
+        }                                                         \
+    }
+    MAKE_API_COMPLEX(NULL, NULL, NULL, NULL, NULL, NULL);
+#undef MAKE_PROG
+    return 0;
+}
+
+int hermite(int type, void *r, const void *src, int row, int column) {
+    debug("hermite is called.");
+    conjugate(type, r, src, row, column);
+    transpose(type, r, src, row, column);
+    return 0;
+}
+
 int lower(int type, void *r, const void *src, int row, int column) {
     int i, j, loop = row > column ? column : row;
     debug("lower triangularize is called");
@@ -492,6 +514,31 @@ int inverse(int type, void *r, const void *src, int row, int column) {
     free(ipiv);
     return 0;
 }
+
+// // Compute the (Moore-Penrose) pseudo-inverse of a matrix.
+// int pinv(int type, void *r, const void *A, int row, int column, void *rcond) {
+//     float scutoff = *((float *)rcond), ccutoff = *((float *)rcond);
+//     double dcutoff = *((double *)rcond), zcutoff = *((double *)rcond);
+
+//     void *u = NULL, *v = NULL, *ut = NULL, *vt = NULL, *S = NULL;
+//     float *ssigma = NULL, *csigma = NULL;
+//     double *dsigma = NULL, *zsigma = NULL;
+
+//     int i = 0;
+
+//     conjugate(type, *(void **)&A, A, row, column); // remove `const` qualifier.
+
+
+// #define MAKE_PROG(GESDD, CUTOFF, SIGMA)
+//     u = malloc(row * row * sizeof(T));
+//     vt = malloc(column * column * sizeof(T));
+//     S = malloc(min(row, column) * sizeof(T));
+//     ssigma = csigma = (float *)S;
+//     dsigma = zsigma = (double *)S;
+//     LAPACKE_##GESDD(CblasRowMajor, 'A', r0, c0, (T *)A, c0, SIGMA, (T *)u, c1, (T *)vt, c3);
+//     CUTOFF *= SIGMA[0];
+//     for ()
+// }
 
 // Eigen system of ordinary matrix.
 //

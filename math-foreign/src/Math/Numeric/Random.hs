@@ -61,13 +61,21 @@ foreign import ccall unsafe "pcg_random.h pcg32_random_float_array" c_pcg32_rand
 
 -- | Generate an array between given upper and lower bounds, like numpy's linspace.
 linspace :: I.Elem a
-    => Float -> Float -> Int32 -> UArray a
-linspace start end size = unsafePerformIO $ do
-    rv <- mutNew (integralCast size)
+    => Float -> Float -> CountOf a -> UArray a
+linspace start end nlen = unsafePerformIO $ do
+    rv <- mutNew nlen
     withMutablePtr rv $ \prv ->
-        I.call $ I.linspace prv start end size
+        I.call $ I.linspace prv start end (integralDownsize nlen)
     unsafeFreeze rv
 
--- | Random for normal distribution.
+-- | Random for standard normal distribution. The given @nlen@ must be an even number.
+boxmuller :: CountOf Float -> IO (UArray Float)
+boxmuller nlen = do
+    arr <- mutNew nlen
+    withMutablePtr arr $ \parr ->
+        c_boxmuller (integralDownsize nlen) parr
+    unsafeFreeze arr
 
+foreign import ccall unsafe "pcg_random.h boxmuller" c_boxmuller
+    :: Int32 -> Ptr Float -> IO ()
 

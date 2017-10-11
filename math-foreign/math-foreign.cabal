@@ -16,8 +16,11 @@ library
   exposed-modules:
     Math.Complex
     Math.Linear.Linalg
+    Math.Linear.Linalg.Dependent
     Math.Linear.Matrix
+    Math.Linear.Matrix.Dependent
     Math.Linear.Matrix.Mutable
+    Math.Linear.Matrix.Mutable.Dependent
     Math.Numeric.Random
     Math.Numeric.Special
   other-modules:
