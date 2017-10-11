@@ -11,7 +11,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Math.Linear.Linalg
-  ( Mat(..)
+  ( module Math.Linear.Matrix
    -- * Matrix Properties
   , det
   , trace
@@ -35,8 +35,8 @@ module Math.Linear.Linalg
   , cholesky
   , schur
    -- * Linear transformations
-  , transform)
-  where
+  , transform
+  ) where
 
 import Foundation
 import Foundation.Collection
@@ -152,8 +152,8 @@ lu m@M {..} = undefined
 
 {-# INLINE lu #-}
 
--- | Reduced QR decomposition: A = QR where A is a m-by-n matrix, Q is a m-by-m
--- orthogonal matrix (column vectors of Q are orthonormal), R is a m-by-n upper trapezoidal matrix.
+-- | Reduced QR decomposition: A = QR where A is a m-by-n matrix, Q is a m-by-min(m, n)
+-- orthogonal matrix (column vectors of Q are orthonormal), R is a min(m, n)-by-n upper trapezoidal matrix.
 --
 -- Equals to numpy's numpy.linalg.qr(src, mode='reduced')
 qr :: I.Elem a
@@ -164,8 +164,8 @@ qr m@M{..} = unsafeFactorizeOp m (row, k) (k, column) I.qr
 
 {-# INLINE qr #-}
 
--- | Complete QR decomposition: A = QR where A is a m-by-n matrix, Q is a m-by-min(m, n)
--- orthogonal matrix (column vectors of Q are orthonormal), R is a min(m, n)-by-n upper trapezoidal matrix.
+-- | Complete QR decomposition: A = QR where A is a m-by-n matrix, Q is a m-by-m
+-- orthogonal matrix (column vectors of Q are orthonormal), R is a m-by-n upper trapezoidal matrix.
 --
 -- Equals to numpy's numpy.linalg.qr(src, mode='complete')
 qr' :: I.Elem a
