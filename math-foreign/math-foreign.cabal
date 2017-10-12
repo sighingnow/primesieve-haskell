@@ -15,12 +15,13 @@ library
   hs-source-dirs:      src
   exposed-modules:
     Math.Complex
-    Math.Linear.Linalg
-    Math.Linear.Linalg.Dependent
+    Math.Linear.Vector.Dependent
     Math.Linear.Matrix
     Math.Linear.Matrix.Dependent
     Math.Linear.Matrix.Mutable
     Math.Linear.Matrix.Mutable.Dependent
+    Math.Linear.Linalg
+    Math.Linear.Linalg.Dependent
     Math.Numeric.Random
     Math.Numeric.Special
   other-modules:
@@ -30,6 +31,7 @@ library
                      , OverloadedStrings
   build-depends:       base >= 4.7 && < 5
                      , foundation
+                     , singletons
   c-sources:           cbits/linear.c
                      , cbits/pcg_basic.c
                      , cbits/pcg_random.c

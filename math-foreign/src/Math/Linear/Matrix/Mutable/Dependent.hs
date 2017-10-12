@@ -9,6 +9,7 @@
 --
 {-# OPTIONS_GHC -fprint-explicit-kinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -19,21 +20,23 @@
 module Math.Linear.Matrix.Mutable.Dependent where
 
 import Foundation
-import Foundation.Array
-import Foundation.Array.Internal (withMutablePtr)
 import Foundation.Class.Storable
 import Foundation.Collection
 import Foundation.Primitive
 
 import GHC.TypeLits
+import Data.Singletons.TypeLits
+import Unsafe.Coerce (unsafeCoerce)
+
 import GHC.Num (Num)
 import Control.Monad.ST (RealWorld)
 import Foreign.Marshal.Alloc (alloca)
 
 import qualified Math.Linear.Internal as I
+import Math.Linear.Vector.Dependent
 
-data MMat a (m :: Nat) (n :: Nat) s = M
-    { vect :: MUArray a s -- ^ data in plain vector.
+data MMat a (m :: Nat) (n :: Nat) s = MM
+    { vect :: MVec a (m * n) s -- ^ data in plain vector.
     }
 
 type IOMat a m n = MMat a m n RealWorld
@@ -55,30 +58,28 @@ square _ = isJust (sameNat (Proxy :: Proxy m) (Proxy :: Proxy n))
 {-# INLINE square #-}
 
 -- | Construct a new matrix without initialisation.
-new :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n)
+new :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Proxy m -> Proxy n -> monad (MMat a m n (PrimState monad))
-new m n = M <$> mutNew (integralCast (r * c))
-    where r = natVal m
-          c = natVal n
+new ~_ ~_ = MM <$> mutNew undefined
 
 {-# INLINE new #-}
 
 -- | Construct a matrix with all zeros.
-zeros :: (PrimMonad monad, PrimType a, Num a, KnownNat m, KnownNat n)
+zeros :: (PrimMonad monad, PrimType a, Num a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Proxy m -> Proxy n -> monad (MMat a m n (PrimState monad))
 zeros r c = replicate' r c 0
 
 {-# INLINE zeros #-}
 
 -- | Construct a matrix with all ones.
-ones :: (PrimMonad monad, PrimType a, Num a, KnownNat m, KnownNat n)
+ones :: (PrimMonad monad, PrimType a, Num a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Proxy m -> Proxy n -> monad (MMat a m n (PrimState monad))
 ones r c = replicate' r c 1
 
 {-# INLINE ones #-}
 
 -- | Construct a identity matrix, square is not required.
-identity :: (I.Elem a, KnownNat m, KnownNat n)
+identity :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Proxy m -> Proxy n -> IO (IOMat a m n)
 identity r c = do
     m <- new r c
@@ -88,7 +89,7 @@ identity r c = do
 {-# INLINE identity #-}
 
 -- | Construct a identity matrix, square is not required.
-random :: (I.Elem a, KnownNat m, KnownNat n)
+random :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Proxy m -> Proxy n -> IO (IOMat a m n)
 random r c = do
     m <- new r c
@@ -98,23 +99,23 @@ random r c = do
 {-# INLINE random #-}
 
 -- | Construct a matrix with all given constants.
-replicate' :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n)
+replicate' :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Proxy m -> Proxy n -> a -> monad (MMat a m n (PrimState monad))
-replicate' m n v = M <$> thaw (replicate (integralCast (r * c)) v)
+replicate' m n v = MM <$> thaw (replicate (integralCast (r * c)) v)
     where r = natVal m
           c = natVal n
 
 {-# INLINE replicate' #-}
 
 -- | Get specified element from matrix unsafely.
-(!) :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n)
+(!) :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat (m * n))
     => MMat a m n (PrimState monad) -> (Proxy m, Proxy n) -> monad a
 (!) = uncurry . unsafeRead
 
 {-# INLINE (!) #-}
 
 -- | Add scalar value to every elements in matrix.
-shift :: (I.Elem a, KnownNat m, KnownNat n)
+shift :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => a -> IOMat a m n -> IO ()
 shift x m = do
     unsafeWith m $
@@ -128,7 +129,7 @@ shift x m = do
 {-# INLINE shift #-}
 
 -- | Multiply scalar value to every elements in matrix.
-times :: (I.Elem a, KnownNat m, KnownNat n)
+times :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => a -> IOMat a m n -> IO ()
 times x m = do
     unsafeWith m $
@@ -142,22 +143,16 @@ times x m = do
 {-# INLINE times #-}
 
 -- | Read value from matrix.
-read :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, u <= m, v <= n)
+read :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
     => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> monad a
-read M{..} u v = mutRead vect (integralCast (r * column + c))
-    where r = natVal u
-          c = natVal v
-          column = natVal (Proxy :: Proxy m)
+read MM{..} u v = mutRead vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE read #-}
 
 -- | Write value to matrix.
-write :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, u <= m, v <= n)
+write :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
     => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> a -> monad ()
-write M{..} u v = mutWrite vect (integralCast (r * column + c))
-    where r = natVal u
-          c = natVal v
-          column = natVal (Proxy :: Proxy m)
+write MM{..} u v = mutWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE write #-}
 
@@ -177,21 +172,15 @@ write M{..} u v = mutWrite vect (integralCast (r * column + c))
 
 -- {-# INLINE modify #-}
 
-unsafeRead :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, u <= m, v <= n)
+unsafeRead :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
     => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> monad a
-unsafeRead M{..} u v = mutUnsafeRead vect (integralCast (r * column + c))
-    where r = natVal u
-          c = natVal v
-          column = natVal (Proxy :: Proxy m)
+unsafeRead MM{..} u v = mutUnsafeRead vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE unsafeRead #-}
 
-unsafeWrite :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, u <= m, v <= n)
+unsafeWrite :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
     => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> a -> monad ()
-unsafeWrite M{..} u v = mutUnsafeWrite vect (integralCast (r * column + c))
-    where r = natVal u
-          c = natVal v
-          column = natVal (Proxy :: Proxy m)
+unsafeWrite MM{..} u v = mutUnsafeWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE unsafeWrite #-}
 
@@ -211,7 +200,7 @@ unsafeWrite M{..} u v = mutUnsafeWrite vect (integralCast (r * column + c))
 
 unsafeWith :: forall monad a b m n. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n)
     => MMat a m n (PrimState monad) -> (Ptr a -> Int32 -> Int32 -> monad b) -> monad b
-unsafeWith M{..} f = withMutablePtr vect $ \p -> f p row column
+unsafeWith MM{..} f = withMutableVPtr vect $ \p -> f p row column
     where row = integralDownsize $ natVal (Proxy :: Proxy m)
           column = integralDownsize $ natVal (Proxy :: Proxy n)
 

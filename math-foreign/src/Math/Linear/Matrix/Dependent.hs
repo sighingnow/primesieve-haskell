@@ -11,7 +11,10 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-inline-rule-shadowing #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -26,16 +29,20 @@ import Foundation.Collection
 import Foundation.Primitive
 
 import GHC.TypeLits
+import Data.Singletons.TypeLits
+import Unsafe.Coerce (unsafeCoerce)
+
 import GHC.Num (Num)
 import Foreign.Marshal.Alloc (alloca)
 import qualified Foreign.Storable as Foreign.Storable
 import System.IO.Unsafe (unsafePerformIO)
 
 import qualified Math.Linear.Internal as I
+import Math.Linear.Vector.Dependent
 import qualified Math.Linear.Matrix.Mutable.Dependent as Mutable
 
-data Mat a (m :: Nat) (n :: Nat) = M
-    { vect :: {-# UNPACK #-}!(UArray a) -- ^ data in plain vector.
+newtype Mat a (m :: Nat) (n :: Nat) = M
+    { vect :: {-# UNPACK #-}(Vec a (m * n)) -- ^ data in plain vector.
     } deriving (Eq, Show)
 
 -- | Construct an empty matrix.
@@ -73,7 +80,7 @@ ones r c = replicate' r c 1
 {-# INLINE ones #-}
 
 -- | Construct a identity matrix, square is not required.
-identity :: (I.Elem a, KnownNat m, KnownNat n)
+identity :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Proxy m -> Proxy n -> Mat a m n
 identity r c = unsafePerformIO $ do
     m <- Mutable.zeros r c
@@ -84,7 +91,7 @@ identity r c = unsafePerformIO $ do
 {-# INLINE identity #-}
 
 -- | Construct a random matrix.
-random :: (I.Elem a, KnownNat m, KnownNat n)
+random :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Proxy m -> Proxy n -> IO (Mat a m n)
 random r c = do
     m <- Mutable.new r c
@@ -135,7 +142,7 @@ matrix m n func = fromList' r c [ func i j
 {-# INLINE matrix #-}
 
 -- | Construct a diagonal matrix from given vector, elements in vector will be diagonal elements of the matrix.
-diag :: (I.Elem a, KnownNat n)
+diag :: (I.Elem a, KnownNat n, KnownNat (n * n))
     => Proxy n -> UArray a -> Mat a n n
 diag nlen xs = unsafePerformIO $ do
     m <- Mutable.new nlen nlen
@@ -201,7 +208,7 @@ at' M{..} (u, v) = case vect ! (integralCast (i * column + j)) of
 {-# INLINE at' #-}
 
 -- | Get elements in diagonal positions, square matrix is not necessary.
-diagonal :: forall a m n. (I.Elem a, KnownNat m, KnownNat n)
+diagonal :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> UArray a
 diagonal m@M{..} = unsafePerformIO $ do
     v <- mutNew (integralCast (min row column))
@@ -322,7 +329,7 @@ infix 8 ==>
 --  #-}
 
 -- | Matrix transpose.
-transpose :: forall a m n. (I.Elem a, KnownNat m, KnownNat n)
+transpose :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> Mat a n m
 transpose m@M{..} = unsafeUnaryOp (Proxy :: Proxy n) (Proxy :: Proxy m) I.transpose m -- matrix column row $ \i j -> m ! (j, i)
 
@@ -333,14 +340,14 @@ transpose m@M{..} = unsafeUnaryOp (Proxy :: Proxy n) (Proxy :: Proxy m) I.transp
  #-}
 
 -- | Lower triangularize the given matrix strictly.
-lower :: forall a m n. (I.Elem a, KnownNat m, KnownNat n)
+lower :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> Mat a m n
 lower m@M{..} = unsafeUnaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.lower m
 
 {-# INLINE lower #-}
 
 -- | Upper triangularize the given matrix strictly.
-upper :: forall a m n. (I.Elem a, KnownNat m, KnownNat n)
+upper :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> Mat a m n
 upper m@M{..} = unsafeUnaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.upper m
 
@@ -418,25 +425,25 @@ upper m@M{..} = unsafeUnaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.upper m
 --     | otherwise = error "Mat.zipWith: uncompatible shape of two operands."
 
 -- | The sum of all coefficients of the matrix
-sum :: (I.Elem a, KnownNat m, KnownNat n) => Mat a m n -> a
+sum :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n)) => Mat a m n -> a
 sum = unsafeOp I.sum
 
 {-# INLINE sum #-}
 
 -- | The product of all coefficients of the matrix
-product :: (I.Elem a, KnownNat m, KnownNat n) => Mat a m n -> a
+product :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n)) => Mat a m n -> a
 product = unsafeOp I.product -- V.product . vect
 
 {-# INLINE product #-}
 
 -- | The mean of all coefficients of the matrix
-mean :: (I.Elem a, KnownNat m, KnownNat n) => Mat a m n -> a
+mean :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n)) => Mat a m n -> a
 mean = unsafeOp I.mean
 
 {-# INLINE mean #-}
 
 -- | Add scalar value to every elements in matrix.
-shift :: forall a m n. (I.Elem a, Additive a, KnownNat m, KnownNat n)
+shift :: forall a m n. (I.Elem a, Additive a, KnownNat m, KnownNat n, KnownNat (m * n))
     => a -> Mat a m n -> Mat a m n
 shift x m@M{..} = unsafePerformIO $ do
     m' <- Mutable.new (Proxy :: Proxy m) (Proxy :: Proxy n)
@@ -454,7 +461,7 @@ shift x m@M{..} = unsafePerformIO $ do
  #-}
 
 -- | Multiply scalar value to every elements in matrix.
-times :: forall a m n. (I.Elem a, Multiplicative a, KnownNat m, KnownNat n)
+times :: forall a m n. (I.Elem a, Multiplicative a, KnownNat m, KnownNat n, KnownNat (m * n))
     => a -> Mat a m n -> Mat a m n
 times x m@M {..} = unsafePerformIO $ do
     m' <- Mutable.new (Proxy :: Proxy m) (Proxy :: Proxy n)
@@ -581,7 +588,7 @@ inner' v1 v2 = unsafePerformIO $
 -- {-# INLINE force #-}
 
 -- | Pass a pointer to the matrix's data to the IO action. The data may not be modified through the pointer.
-unsafeWith :: forall monad a c m n. (PrimMonad monad, I.Elem a, KnownNat m, KnownNat n)
+unsafeWith :: forall monad a c m n. (PrimMonad monad, I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> (Ptr a -> Int32 -> Int32 -> monad c) -> monad c
 unsafeWith M{..} f = withPtr vect $ \p -> f p row column
     where row = integralDownsize $ natVal (Proxy :: Proxy m)
@@ -590,7 +597,7 @@ unsafeWith M{..} f = withPtr vect $ \p -> f p row column
 {-# INLINE unsafeWith #-}
 
 -- | Take one matrix as argument and only return a scalar, like sum, mean, max and min.
-unsafeOp :: (I.Elem a, Foreign.Storable.Storable b, Storable b, KnownNat m0, KnownNat n0)
+unsafeOp :: (I.Elem a, Foreign.Storable.Storable b, Storable b, KnownNat m0, KnownNat n0, KnownNat (m0 * n0))
     => (Ptr b -- result ptr, a scalar value.
         -> Ptr a -- matrix operand
         -> Int32 -- rows of matrix operand
@@ -608,7 +615,7 @@ unsafeOp f m = unsafePerformIO $
 {-# INLINE unsafeOp #-}
 
 -- | Take one matrix as it's argument and return a matrix as result, like transpose and inverse.
-unsafeUnaryOp :: (I.Elem a, KnownNat m0, KnownNat n0, KnownNat m1, KnownNat n1)
+unsafeUnaryOp :: (I.Elem a, KnownNat m0, KnownNat n0, KnownNat m1, KnownNat n1, KnownNat (m0 * n0), KnownNat (m1 * n1))
     => Proxy m1 -- ^ target rows
     -> Proxy n1 -- ^ target columns
     -> (Ptr a -- ^ result ptr, a matrix
@@ -629,9 +636,9 @@ unsafeUnaryOp r c f m = unsafePerformIO $ do
 {-# INLINE unsafeUnaryOp #-}
 
 -- | Take two matrices as arguments and return a matrix as result, like dot, add, multiplication.
-unsafeBinaryOp :: (I.Elem a, KnownNat m1, KnownNat n1, KnownNat ml, KnownNat nl, KnownNat mr, KnownNat nr)
-    => Proxy m1 -- ^ target rows
-    -> Proxy n1 -- ^ target columns
+unsafeBinaryOp :: (I.Elem a, KnownNat m0, KnownNat n0, KnownNat ml, KnownNat nl, KnownNat mr, KnownNat nr, KnownNat (m0 * n0), KnownNat (ml * nl), KnownNat (mr * nr))
+    => Proxy m0 -- ^ target rows
+    -> Proxy n0 -- ^ target columns
     -> (Ptr a -- ^ result ptr, a matrix, with shape /m x n/
         -> Int32 -- ^ m
         -> Int32 -- ^ n
@@ -642,7 +649,7 @@ unsafeBinaryOp :: (I.Elem a, KnownNat m1, KnownNat n1, KnownNat ml, KnownNat nl,
       ) -- ^ op function
     -> Mat a ml nl -- ^ left operand
     -> Mat a mr nr -- ^ right operand
-    -> Mat a m1 n1
+    -> Mat a m0 n0
 unsafeBinaryOp r c f m1 m2 = unsafePerformIO $ do
   m0 <- Mutable.new r c
   Mutable.unsafeWith m0 $
@@ -655,7 +662,7 @@ unsafeBinaryOp r c f m1 m2 = unsafePerformIO $ do
 
 -- | Take one matrix as argument and two matrices as result, like QR factorization.
 unsafeFactorizeOp
-    :: (I.Elem a, I.Elem b, I.Elem c, KnownNat m0, KnownNat n0, KnownNat m1, KnownNat n1, KnownNat m2, KnownNat n2)
+    :: (I.Elem a, I.Elem b, I.Elem c, KnownNat m0, KnownNat n0, KnownNat m1, KnownNat n1, KnownNat m2, KnownNat n2, KnownNat (m0 * n0), KnownNat (m1 * n1), KnownNat (m2 * n2))
     => Mat a m0 n0 -- ^ matrix to decompose
     -> (Proxy m1, Proxy n1) -- ^ size of result 1
     -> (Proxy m2, Proxy n2) -- ^ size of result 2
@@ -682,7 +689,7 @@ unsafeFactorizeOp m0 (r1, c1) (r2, c2) f = unsafePerformIO $ do
 
 -- | Take one matrix as argument and three matrices as result, like LU decomposition and SVD decomposition.
 unsafeDecomposeOp
-    :: (I.Elem a, I.Elem b, I.Elem c, I.Elem d, KnownNat m0, KnownNat n0, KnownNat m1, KnownNat n1, KnownNat m2, KnownNat n2, KnownNat m3, KnownNat n3)
+    :: (I.Elem a, I.Elem b, I.Elem c, I.Elem d, KnownNat m0, KnownNat n0, KnownNat m1, KnownNat n1, KnownNat m2, KnownNat n2, KnownNat m3, KnownNat n3, KnownNat (m0 * n0), KnownNat (m1 * n1), KnownNat (m2 * n2), KnownNat (m3 * n3))
     => Mat a m0 n0 -- ^ matrix to decompose
     -> (Proxy m1, Proxy n1) -- ^ size of result 1
     -> (Proxy m2, Proxy n2) -- ^ size of result 2
@@ -755,32 +762,32 @@ instance (PrimType a, KnownNat m, KnownNat n) => MutableCollection (Mutable.MMat
     type MutableFreezed (Mutable.MMat a m n) = Mat a m n
     type MutableKey (Mutable.MMat a m n) = (Proxy m, Proxy n)
     type MutableValue (Mutable.MMat a m n) = a
-    unsafeThaw (M v) = Mutable.M <$> unsafeThaw v
-    unsafeFreeze (Mutable.M v) = M <$> unsafeFreeze v
-    thaw (M v) = Mutable.M <$> thaw v
-    freeze (Mutable.M v) = M <$> freeze v
+    unsafeThaw (M v) = Mutable.MM <$> unsafeThaw v
+    unsafeFreeze (Mutable.MM v) = M <$> unsafeFreeze v
+    thaw (M v) = Mutable.MM <$> thaw v
+    freeze (Mutable.MM v) = M <$> freeze v
     mutNew c
-        | m' * n' == nlen = Mutable.M <$> mutNew c
+        | m' * n' == nlen = Mutable.MM <$> mutNew c
         | otherwise = error "Mutable.MMatrix.mutNew: the given size doesn't match"
         where m' = natVal (Proxy :: Proxy m)
               n' = natVal (Proxy :: Proxy n)
               nlen = let CountOf x = c in integralUpsize x
-    mutUnsafeWrite (Mutable.M v) (i, j) =
+    mutUnsafeWrite (Mutable.MM v) (i, j) =
         mutUnsafeWrite v (integralCast (i' * c + j'))
             where i' = natVal i
                   j' = natVal j
                   c = natVal (Proxy :: Proxy n)
-    mutWrite (Mutable.M v) (i, j) =
+    mutWrite (Mutable.MM v) (i, j) =
         mutWrite v (integralCast (i' * c + j'))
             where i' = natVal i
                   j' = natVal j
                   c = natVal (Proxy :: Proxy n)
-    mutUnsafeRead (Mutable.M v) (i, j) =
+    mutUnsafeRead (Mutable.MM v) (i, j) =
         mutUnsafeRead v (integralCast (i' * c + j'))
             where i' = natVal i
                   j' = natVal j
                   c = natVal (Proxy :: Proxy n)
-    mutRead (Mutable.M v) (i, j) =
+    mutRead (Mutable.MM v) (i, j) =
         mutRead v (integralCast (i' * c + j'))
             where i' = natVal i
                   j' = natVal j
