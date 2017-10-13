@@ -12,54 +12,56 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Math.Linear.Linalg.Dependent where
 
 import Foundation
 import Foundation.Collection
-import Foundation.Array.Internal (withPtr, withMutablePtr)
-import Foundation.Foreign
 import Foundation.Primitive
 
 import GHC.TypeLits
+import Data.Singletons.Prelude.Ord
+
 import Foreign.C.String (castCharToCChar)
 import Foreign.Ptr (nullPtr)
 import System.IO.Unsafe (unsafePerformIO)
 
 import qualified Math.Linear.Internal as I
+import Math.Linear.Vector.Dependent
 import qualified Math.Linear.Matrix.Mutable.Dependent as Mutable
 import Math.Linear.Matrix.Dependent (Mat(..), unsafeWith, unsafeOp, unsafeUnaryOp, unsafeFactorizeOp, unsafeDecomposeOp)
 
 -- | Matrix determinant.
-det :: (I.Elem a, KnownNat m, KnownNat n)
+det :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> a
 det = unsafeOp I.det
 
 {-# INLINE det #-}
 
 -- | Trace of a matrix.
-trace :: (I.Elem a, KnownNat m, KnownNat n)
+trace :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> a
 trace = unsafeOp I.trace
 
 {-# INLINE trace #-}
 
 -- | Rank of a matrix.
-rank :: (I.Elem a, KnownNat m, KnownNat n)
+rank :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> Int32
 rank = unsafeOp I.rank
 
 {-# INLINE rank #-}
 
 -- | .
-norm :: (I.Elem a, KnownNat m, KnownNat n)
+norm :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -> a
 norm = unsafeOp I.norm
 
 {-# INLINE norm #-}
 
 -- | Inverse matrix.
-inverse :: forall a n. (I.Elem a, KnownNat n)
+inverse :: forall a n. (I.Elem a, KnownNat n, KnownNat (n * n))
     => Mat a n n -> Mat a n n
 inverse m@M{..} = unsafeUnaryOp nlen nlen I.inverse m
     where nlen = Proxy :: Proxy n
@@ -72,9 +74,9 @@ inverse m@M{..} = unsafeUnaryOp nlen nlen I.inverse m
 --    + For every column vector x in left eigenvectors U, we have x^H * A = \lambda x^H.
 --
 -- Noticing that eigenvectors are stored as column vectors in U^T and V.
-eigen :: forall a n. (I.Elem a, I.Elem (I.ComplexType a), KnownNat n)
+eigen :: forall a n. (I.Elem a, I.Elem (I.ComplexType a), KnownNat n, KnownNat (n * n))
     => Mat a n n -- ^ square matrix.
-    -> (UArray (I.ComplexType a), Mat (I.ComplexType a) n n, Mat (I.ComplexType a) n n) -- ^ (\Lambda, UT (Hermitian of left eigenvectors), V (right eigenvectors))
+    -> (Vec (I.ComplexType a) n, Mat (I.ComplexType a) n n, Mat (I.ComplexType a) n n) -- ^ (\Lambda, UT (Hermitian of left eigenvectors), V (right eigenvectors))
 eigen m@M{..} = (lam, ut, v)
     where nlen = Proxy :: Proxy n
           ((M lam), ut, v) = unsafeDecomposeOp m (Proxy :: Proxy 1, nlen) (nlen, nlen) (nlen, nlen) I.eigen
@@ -84,9 +86,9 @@ eigen m@M{..} = (lam, ut, v)
 -- | Compute the eigenvalues and right eigenvectors of a Hermitian or symmetric matrix.
 --
 --  A = V \Lambda V^T (or V^H), V is an orthogonal matrix whose columns are the eigenvectors of A.
-eigenh :: forall a n. (I.Elem a, I.Elem (I.RealType a), KnownNat n)
+eigenh :: forall a n. (I.Elem a, I.Elem (I.RealType a), KnownNat n, KnownNat (n * n))
     => Mat a n n -- ^ symmetric matrix A, the upper triangular part of A is used when call lapack routines.
-    -> (UArray (I.RealType a), Mat a n n) -- ^ The eigenvalues is stored in ascending order,
+    -> (Vec (I.RealType a) n, Mat a n n) -- ^ The eigenvalues is stored in ascending order,
                                       -- eigenvalues of symmetric complex matrix is real number.
 eigenh m@M{..} = (lam, v)
     where nlen = Proxy :: Proxy n
@@ -95,9 +97,9 @@ eigenh m@M{..} = (lam, v)
 {-# INLINE eigenh #-}
 
 -- | Compute the eignevalues of a square matrix.
-eigenvals :: forall a n. (I.Elem a, I.Elem (I.ComplexType a), KnownNat n)
+eigenvals :: forall a n. (I.Elem a, I.Elem (I.ComplexType a), KnownNat n, KnownNat (n * n))
     => Mat a n n
-    -> UArray (I.ComplexType a)
+    -> Vec (I.ComplexType a) n
 eigenvals m@M{..} = lam
     where nlen = Proxy :: Proxy n
           ((M lam), _, _) = unsafeDecomposeOp m (Proxy :: Proxy 1, nlen) (Proxy :: Proxy 0, nlen) (Proxy :: Proxy 0, nlen) I.eigen
@@ -105,9 +107,9 @@ eigenvals m@M{..} = lam
 {-# INLINE eigenvals #-}
 
 -- | Compute the eignevalues of a Hermitian or symmetric matrix.
-eigenvalsh :: forall a n. (I.Elem a, I.Elem (I.RealType a), KnownNat n)
+eigenvalsh :: forall a n. (I.Elem a, I.Elem (I.RealType a), KnownNat n, KnownNat (n * n))
     => Mat a n n
-    -> UArray (I.RealType a) -- ^ The eigenvalues is stored in ascending order,
+    -> Vec (I.RealType a) n -- ^ The eigenvalues is stored in ascending order,
                              -- eigenvalues of symmetric complex matrix is real number.
 eigenvalsh m@M{..} = lam
     where nlen = Proxy :: Proxy n
@@ -121,7 +123,7 @@ eigenvalsh m@M{..} = lam
 lu :: I.Elem a
     => Mat a m n -- ^ matrix A
     -> (Mat a m n, Mat a m n, Mat a m n) -- ^ matrices (L, U, P)
-lu m@M{..} = undefined
+lu M{..} = undefined
     -- | row < column = unsafeDecomposeOp (row, row) (row, column) (column, column) I.lu m
     -- | otherwise = unsafeDecomposeOp (row, column) (column, column) (column, column) I.lu m
 
@@ -131,19 +133,21 @@ lu m@M{..} = undefined
 -- orthogonal matrix (column vectors of Q are orthonormal), R is a min(m, n)-by-n upper trapezoidal matrix.
 --
 -- Equals to numpy's numpy.linalg.qr(src, mode='reduced')
--- qr :: I.Elem a
---     => Mat a m n -- ^ matrix A
---     -> (Mat a m m, Mat a m n) -- ^ matrices (Q, R)
--- qr m@M{..} = unsafeFactorizeOp m (row, k) (k, column) I.qr
---     where k = min row column
+qr :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n), KnownNat (m * Min m n), KnownNat (Min m n * n), KnownNat (Min m n))
+    => Mat a m n -- ^ matrix A
+    -> (Mat a m (Min m n), Mat a (Min m n) n) -- ^ matrices (Q, R)
+qr m@M{..} = unsafeFactorizeOp m (row, k) (k, column) I.qr
+    where row = Proxy :: Proxy m
+          column = Proxy :: Proxy n
+          k = Proxy :: Proxy (Min m n)
 
--- {-# INLINE qr #-}
+{-# INLINE qr #-}
 
 -- | Complete QR decomposition: A = QR where A is a m-by-n matrix, Q is a m-by-m
 -- orthogonal matrix (column vectors of Q are orthonormal), R is a m-by-n upper trapezoidal matrix.
 --
 -- Equals to numpy's numpy.linalg.qr(src, mode='complete')
-qr' :: forall a m n. (I.Elem a, KnownNat m, KnownNat n)
+qr' :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n), KnownNat (m * m))
     => Mat a m n -- ^ matrix A
     -> (Mat a m m, Mat a m n) -- ^ matrices (Q, R)
 qr' m@M{..} = unsafeFactorizeOp m (row, row) (row, column) I.qr
@@ -152,37 +156,41 @@ qr' m@M{..} = unsafeFactorizeOp m (row, row) (row, column) I.qr
 
 {-# INLINE qr' #-}
 
--- -- | Singular value decomposition: A = U \Sigma V^T (or V^H)
--- svd :: (I.Elem a, I.Elem (I.RealType a))
---     => Mat a m n -- ^ matrix A
---     -> (Mat a m m, UArray (I.RealType a), Mat a n n) -- ^ matrices (U, \sigma, V^T (or V^H)), where \sigma is
---                                              -- diagonal elements of matrix \Sigma.
--- svd m@M{..} = (u, sigma, vt)
---     where k = min row column
---           (u, (M _ _ sigma), vt) = unsafeDecomposeOp m (row, row) (k, 1) (column, column) I.svd
+-- | Singular value decomposition: A = U \Sigma V^T (or V^H)
+svd :: forall a m n. (I.Elem a, I.Elem (I.RealType a), KnownNat m, KnownNat n, KnownNat (m * n), KnownNat (m * m), KnownNat (n * n), KnownNat (Min m n))
+    => Mat a m n -- ^ matrix A
+    -> (Mat a m m, Vec (I.RealType a) (Min m n), Mat a n n) -- ^ matrices (U, \sigma, V^T (or V^H)), where \sigma is
+                                                  -- diagonal elements of matrix \Sigma.
+svd m@M{..} = (u, sigma, vt)
+    where row = Proxy :: Proxy m
+          column = Proxy :: Proxy n
+          k = Proxy :: Proxy (Min m n)
+          (u, (M sigma), vt) = unsafeDecomposeOp m (row, row) (k, Proxy :: Proxy 1) (column, column) I.svd
 
--- {-# INLINE svd #-}
+{-# INLINE svd #-}
 
--- -- | Compact singular value decomposition: A = U \Sigma V^T (or V^H). Only first min(m, n) columns of U and
--- -- first min(m, n) rows of V^H is computed, and \Sigma is a min(m, n)-by-min(m, n) square matrix.
--- svd' :: (I.Elem a, I.Elem (I.RealType a))
---     => Mat a -- ^ matrix A
---     -> (Mat a, UArray (I.RealType a), Mat a) -- ^ matrices (U, \sigma, V^T (or V^H)), where \sigma is
---                                              -- diagonal elements of matrix \Sigma.
--- svd' m@M{..} = (u, sigma, vt)
---     where k = min row column
---           (u, (M _ _ sigma), vt) = unsafeDecomposeOp m (row, k) (k, 1) (k, column) I.svd
+-- | Compact singular value decomposition: A = U \Sigma V^T (or V^H). Only first min(m, n) columns of U and
+-- first min(m, n) rows of V^H is computed, and \Sigma is a min(m, n)-by-min(m, n) square matrix.
+svd' :: forall a m n. (I.Elem a, I.Elem (I.RealType a), KnownNat m, KnownNat n, KnownNat (m * n), KnownNat (m * Min m n), KnownNat (Min m n * n), KnownNat (Min m n))
+    => Mat a m n -- ^ matrix A
+    -> (Mat a m (Min m n), Vec (I.RealType a) (Min m n), Mat a (Min m n) n) -- ^ matrices (U, \sigma, V^T (or V^H)), where \sigma is
+                                                                            -- diagonal elements of matrix \Sigma.
+svd' m@M{..} = (u, sigma, vt)
+    where row = Proxy :: Proxy m
+          column = Proxy :: Proxy n
+          k = Proxy :: Proxy (Min m n)
+          (u, (M sigma), vt) = unsafeDecomposeOp m (row, k) (k, Proxy :: Proxy 1) (k, column) I.svd
 
--- {-# INLINE svd' #-}
+{-# INLINE svd' #-}
 
 -- | Singular value decomposition, only result singular values, without compute U and V^T.
-singular :: forall a m n. (I.Elem a, I.Elem (I.RealType a), KnownNat m, KnownNat n)
+singular :: forall a m n. (I.Elem a, I.Elem (I.RealType a), KnownNat m, KnownNat n, KnownNat (m * n))
     => Mat a m n -- ^ matrix A
-    -> UArray (I.RealType a) -- ^ singular value array.
+    -> Vec (I.RealType a) n -- ^ singular value array.
 singular M{..} = unsafePerformIO $ do
     arr <- mutNew (integralCast (min row column))
-    withMutablePtr arr $ \pr ->
-        withPtr vect $ \px ->
+    withMutableVPtr arr $ \pr ->
+        withVPtr vect $ \px ->
             I.call $ I.svd px row column nullPtr 0 1 pr 1 (min row column) nullPtr 0 column
     unsafeFreeze arr
   where
@@ -194,13 +202,13 @@ singular M{..} = unsafePerformIO $ do
 -- | Jordan decomposition.
 jordan :: I.Elem a
     => Mat a m n -> (Mat a m n, Mat a m n, Mat a m n)
-jordan m@M{..} = undefined
+jordan M{..} = undefined
 
 {-# INLINE jordan #-}
 
 -- | Cholesky decomposition: A = U^T U for real data and A = U^H U for complex data, where U is a upper/lower triangular matrix.
 -- A must be a symmetric positive-definite matrix (but not checked).
-cholesky :: forall a n. (I.Elem a, KnownNat n)
+cholesky :: forall a n. (I.Elem a, KnownNat n, KnownNat (n * n))
     => Mat a n n
     -> Char       -- ^ 'U' for upper triangular matrix and 'L' for lower triangular matrix.
     -> Mat a n n  -- ^ an upper/lower triangular matrix.
@@ -216,20 +224,20 @@ cholesky m@M{..} uplo = unsafePerformIO $ do
 -- | Schur decomposition.
 schur :: I.Elem a
     => Mat a m n -> (Mat a m n, Mat a m n, Mat a m n)
-schur m@M {..} = undefined
+schur M{..} = undefined
 
 {-# INLINE schur #-}
 
 -- | Linear transformation, /transform A x = Ax/.
-transform :: forall a m n. (I.Elem a, KnownNat m, KnownNat n)
-    => Mat a m n -> UArray a -> UArray a
+transform :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
+    => Mat a m n -> Vec a n -> Vec a n
 transform m@M{..} v
     | row * column /= integralUpsize nlen' = error "Linalg.transform: the given size doesn't match"
     | otherwise = unsafePerformIO $ do
         v' <- mutNew nlen
-        withMutablePtr v' $ \xr ->
+        withMutableVPtr v' $ \xr ->
             unsafeWith m $ \xs r c ->
-                withPtr v $ \xv ->
+                withVPtr v $ \xv ->
                     I.call $ I.transform xr r c xs xv
         unsafeFreeze v'
   where row = natVal (Proxy :: Proxy m)

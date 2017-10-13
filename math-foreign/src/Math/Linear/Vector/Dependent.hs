@@ -5,6 +5,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -21,13 +22,12 @@ import Foundation.Collection
 import Foundation.Primitive
 
 import GHC.TypeLits
-import Data.Singletons.TypeLits
 
 import Prelude (fromIntegral)
 
-newtype Vec a (n :: Nat) = V { vect :: {-# UNPACK #-}(UArray a) } deriving (Eq, Ord, Show)
+newtype Vec a (n :: Nat) = V { vect :: UArray a } deriving (Eq, Ord, Show)
 
-newtype MVec a (n :: Nat) s = MV { vect :: {-# UNPACK #-}(MUArray a s) }
+newtype MVec a (n :: Nat) s = MV { vect :: MUArray a s }
 
 type instance Element (Vec a n) = a
 
@@ -59,7 +59,7 @@ deriving instance PrimType a => Zippable (Vec a n)
 
 instance (PrimType a, KnownNat n) => MutableCollection (MVec a n) where
   type MutableFreezed (MVec a n) = Vec a n
-  type MutableKey (MVec a n) = Proxy n
+  type MutableKey (MVec a n) = Offset a
   type MutableValue (MVec a n) = a
   unsafeThaw V{..} = MV <$> unsafeThaw vect
   unsafeFreeze MV{..} = V <$> unsafeFreeze vect
@@ -67,10 +67,10 @@ instance (PrimType a, KnownNat n) => MutableCollection (MVec a n) where
   freeze MV{..} = V <$> freeze vect
   -- The given size argument would be ignored.
   mutNew ~_ = MV <$> mutNew nlen where nlen = CountOf (fromIntegral (natVal (Proxy :: Proxy n)))
-  mutUnsafeWrite MV{..} loc = mutUnsafeWrite vect loc' where loc' = Offset (fromIntegral (natVal loc))
-  mutWrite MV{..} loc = mutWrite vect loc' where loc' = Offset (fromIntegral (natVal loc))
-  mutUnsafeRead MV{..} loc = mutUnsafeRead vect loc' where loc' = Offset (fromIntegral (natVal loc))
-  mutRead MV{..} loc = mutRead vect loc' where loc' = Offset (fromIntegral (natVal loc))
+  mutUnsafeWrite MV{..} loc = mutUnsafeWrite vect loc
+  mutWrite MV{..} loc = mutWrite vect loc
+  mutUnsafeRead MV{..} loc = mutUnsafeRead vect loc
+  mutRead MV{..} loc = mutRead vect loc
 
 withVPtr :: (PrimMonad monad, PrimType a) => Vec a n -> (Ptr a -> monad b) -> monad b
 withVPtr V{..} = withPtr vect

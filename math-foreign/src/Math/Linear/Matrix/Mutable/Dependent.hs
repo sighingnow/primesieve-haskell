@@ -25,7 +25,6 @@ import Foundation.Collection
 import Foundation.Primitive
 
 import GHC.TypeLits
-import Data.Singletons.TypeLits
 import Unsafe.Coerce (unsafeCoerce)
 
 import GHC.Num (Num)
@@ -145,14 +144,14 @@ times x m = do
 -- | Read value from matrix.
 read :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
     => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> monad a
-read MM{..} u v = mutRead vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
+read MM{..} _ _ = mutRead vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE read #-}
 
 -- | Write value to matrix.
 write :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
     => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> a -> monad ()
-write MM{..} u v = mutWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
+write MM{..} _ _ = mutWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE write #-}
 
@@ -174,13 +173,13 @@ write MM{..} u v = mutWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 unsafeRead :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
     => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> monad a
-unsafeRead MM{..} u v = mutUnsafeRead vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
+unsafeRead MM{..} _ _ = mutUnsafeRead vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE unsafeRead #-}
 
 unsafeWrite :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
     => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> a -> monad ()
-unsafeWrite MM{..} u v = mutUnsafeWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
+unsafeWrite MM{..} _ _ = mutUnsafeWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE unsafeWrite #-}
 
