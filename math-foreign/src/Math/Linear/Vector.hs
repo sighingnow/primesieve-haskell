@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Math.Linear.Vector.Dependent where
+module Math.Linear.Vector where
 
 import Foundation
 import Foundation.Array

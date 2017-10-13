@@ -15,13 +15,13 @@ library
   hs-source-dirs:      src
   exposed-modules:
     Math.Complex
-    Math.Linear.Vector.Dependent
+    Math.Linear.Vector
     Math.Linear.Matrix
-    Math.Linear.Matrix.Dependent
+    Math.Linear.Matrix.Naive
     Math.Linear.Matrix.Mutable
-    Math.Linear.Matrix.Mutable.Dependent
+    Math.Linear.Matrix.Mutable.Naive
     Math.Linear.Linalg
-    Math.Linear.Linalg.Dependent
+    Math.Linear.Linalg.Naive
     Math.Numeric.Random
     Math.Numeric.Special
   other-modules:
