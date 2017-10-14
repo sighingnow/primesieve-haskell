@@ -47,4 +47,6 @@ executable math-foreign
                      , OverloadedStrings
   build-depends:       base >= 4.7 && < 5
                      , foundation
+                     , intuition-plugin
+                     , ghc-typelits-knownnat
                      , math-foreign
