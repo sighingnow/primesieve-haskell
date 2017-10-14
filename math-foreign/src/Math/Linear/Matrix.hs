@@ -70,20 +70,20 @@ square M{..} = isJust (sameNat (Proxy :: Proxy m) (Proxy :: Proxy n))
 {-# INLINE square #-}
 
 -- | Construct a matrix with all zeros.
-zeros :: (PrimType a, Num a, KnownNat m, KnownNat n) => Proxy m -> Proxy n -> Mat a m n
+zeros :: (PrimType a, Num a, KnownNat m, KnownNat n) => proxy m -> proxy n -> Mat a m n
 zeros r c = replicate' r c 0
 
 {-# INLINE zeros #-}
 
 -- | Construct a matrix with all ones.
-ones :: (PrimType a, Num a, KnownNat m, KnownNat n) => Proxy m -> Proxy n -> Mat a m n
+ones :: (PrimType a, Num a, KnownNat m, KnownNat n) => proxy m -> proxy n -> Mat a m n
 ones r c = replicate' r c 1
 
 {-# INLINE ones #-}
 
 -- | Construct a identity matrix, square is not required.
 identity :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Proxy m -> Proxy n -> Mat a m n
+    => proxy m -> proxy n -> Mat a m n
 identity r c = unsafePerformIO $ do
     m <- Mutable.zeros r c
     Mutable.unsafeWith m $ \xs r' c' ->
@@ -94,7 +94,7 @@ identity r c = unsafePerformIO $ do
 
 -- | Construct a random matrix.
 random :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Proxy m -> Proxy n -> IO (Mat a m n)
+    => proxy m -> proxy n -> IO (Mat a m n)
 random r c = do
     m <- Mutable.new r c
     Mutable.unsafeWith m $ \xs r' c' ->
@@ -125,7 +125,7 @@ random r c = do
 
 -- | Construct a matrix with given constant.
 replicate' :: (PrimType a, KnownNat m, KnownNat n)
-    => Proxy m -> Proxy n -> a -> Mat a m n
+    => proxy m -> proxy n -> a -> Mat a m n
 replicate' m n = M . replicate (integralCast (r * c))
     where r = natVal m
           c = natVal n
@@ -134,7 +134,7 @@ replicate' m n = M . replicate (integralCast (r * c))
 
 -- | Construct matrix with given generate function.
 matrix :: (PrimType a, KnownNat m, KnownNat n)
-    => Proxy m -> Proxy n -> (Int32 -> Int32 -> a) -> Mat a m n
+    => proxy m -> proxy n -> (Int32 -> Int32 -> a) -> Mat a m n
 matrix m n func = fromList' r c [ func i j
                                 | j <- [0 .. c - 1]
                                 , i <- [0 .. r - 1] ]
@@ -188,8 +188,8 @@ find' predicate M{..} = find predicate vect
 -- {-# INLINE foldl' #-}
 
 -- | Get specified element from matrix.
-at :: forall a m n u v. (PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, u <= m, v <= n)
-    => Mat a m n -> (Proxy u, Proxy v) -> Maybe a
+at :: forall proxy a m n u v. (PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, u <= m, v <= n)
+    => Mat a m n -> (proxy u, proxy v) -> Maybe a
 at M{..} (u, v) = vect ! (integralCast (i * column + j))
     where i = natVal u
           j = natVal v

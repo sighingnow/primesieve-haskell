@@ -7,6 +7,7 @@
 --
 -- Random data generator according to some special distribution constraints.
 --
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Math.Numeric.Random where
 
@@ -18,11 +19,15 @@ import Foundation.Foreign
 import Foundation.Primitive
 import Foundation.Random
 
+import GHC.TypeLits
+
+import Prelude (fromIntegral)
 import Foreign.C.String (castCharToCChar)
 import Foreign.Ptr (nullPtr)
 import System.IO.Unsafe (unsafePerformIO)
 
 import qualified Math.Linear.Internal as I
+import Math.Linear.Vector
 import qualified Math.Linear.Matrix.Mutable as Mutable
 import Math.Linear.Matrix (Mat(..), unsafeWith, unsafeOp, unsafeUnaryOp, unsafeFactorizeOp, unsafeDecomposeOp)
 
@@ -33,12 +38,13 @@ randInt32 = c_pcg32_random
 foreign import ccall unsafe "pcg_basic.h pcg32_random" c_pcg32_random
     :: IO Int32
 
-randInt32Arr :: CountOf Int32 -> IO (UArray Int32)
-randInt32Arr nlen = do
+randInt32Arr :: forall n. KnownNat n => IO (Vec Int32 n)
+randInt32Arr = do
     arr <- mutNew nlen
-    withMutablePtr arr $ \parr ->
+    withMutableVPtr arr $ \parr ->
         c_pcg32_random_array (integralDownsize nlen) parr
     unsafeFreeze arr
+  where nlen = CountOf . fromIntegral . natVal $ (Proxy :: Proxy n)
 
 foreign import ccall unsafe "pcg_random.h pcg32_random_array" c_pcg32_random_array
     :: Int32 -> Ptr Int32 -> IO ()
@@ -49,32 +55,35 @@ randFloat = c_pcg32_random_float
 foreign import ccall unsafe "pcg_random.h pcg32_random_float" c_pcg32_random_float
     :: IO Float
 
-randFloatArr :: CountOf Float -> IO (UArray Float)
-randFloatArr nlen = do
+randFloatArr :: forall n. KnownNat n => IO (Vec Float n)
+randFloatArr = do
     arr <- mutNew nlen
-    withMutablePtr arr $ \parr ->
+    withMutableVPtr arr $ \parr ->
         c_pcg32_random_float_array (integralDownsize nlen) parr
     unsafeFreeze arr
+  where nlen = CountOf . fromIntegral . natVal $ (Proxy :: Proxy n)
 
 foreign import ccall unsafe "pcg_random.h pcg32_random_float_array" c_pcg32_random_float_array
     :: Int32 -> Ptr Float -> IO ()
 
 -- | Generate an array between given upper and lower bounds, like numpy's linspace.
-linspace :: I.Elem a
-    => Float -> Float -> CountOf a -> UArray a
-linspace start end nlen = unsafePerformIO $ do
+linspace :: forall a n. (I.Elem a, KnownNat n)
+    => Float -> Float -> Vec a n
+linspace start end = unsafePerformIO $ do
     rv <- mutNew nlen
-    withMutablePtr rv $ \prv ->
+    withMutableVPtr rv $ \prv ->
         I.call $ I.linspace prv start end (integralDownsize nlen)
     unsafeFreeze rv
+  where nlen = CountOf . fromIntegral . natVal $ (Proxy :: Proxy n)
 
 -- | Random for standard normal distribution. The given @nlen@ must be an even number.
-boxmuller :: CountOf Float -> IO (UArray Float)
-boxmuller nlen = do
+boxmuller :: forall n. KnownNat n => IO (Vec Float n)
+boxmuller = do
     arr <- mutNew nlen
-    withMutablePtr arr $ \parr ->
+    withMutableVPtr arr $ \parr ->
         c_boxmuller (integralDownsize nlen) parr
     unsafeFreeze arr
+  where nlen = CountOf . fromIntegral . natVal $ (Proxy :: Proxy n)
 
 foreign import ccall unsafe "pcg_random.h boxmuller" c_boxmuller
     :: Int32 -> Ptr Float -> IO ()

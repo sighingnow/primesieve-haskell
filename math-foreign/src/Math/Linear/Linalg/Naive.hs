@@ -41,7 +41,6 @@ module Math.Linear.Linalg.Naive
 import Foundation
 import Foundation.Collection
 import Foundation.Array.Internal (withPtr, withMutablePtr)
-import Foundation.Foreign
 import Foundation.Primitive
 
 import Foreign.C.String (castCharToCChar)
@@ -146,7 +145,7 @@ eigenvalsh m@M{..}
 lu :: I.Elem a
     => Mat a -- ^ matrix A
     -> (Mat a, Mat a, Mat a) -- ^ matrices (L, U, P)
-lu m@M {..} = undefined
+lu M{..} = undefined
     -- | row < column = unsafeDecomposeOp (row, row) (row, column) (column, column) I.lu m
     -- | otherwise = unsafeDecomposeOp (row, column) (column, column) (column, column) I.lu m
 
@@ -214,7 +213,7 @@ singular M{..} = unsafePerformIO $ do
 -- | Jordan decomposition.
 jordan :: I.Elem a
     => Mat a -> (Mat a, Mat a, Mat a)
-jordan m@M {..} = undefined
+jordan M{..} = undefined
 
 {-# INLINE jordan #-}
 
@@ -238,7 +237,7 @@ cholesky m@M{..} uplo
 -- | Schur decomposition.
 schur :: I.Elem a
     => Mat a -> (Mat a, Mat a, Mat a)
-schur m@M {..} = undefined
+schur M{..} = undefined
 
 {-# INLINE schur #-}
 

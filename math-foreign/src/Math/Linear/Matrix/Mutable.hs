@@ -58,28 +58,28 @@ square _ = isJust (sameNat (Proxy :: Proxy m) (Proxy :: Proxy n))
 
 -- | Construct a new matrix without initialisation.
 new :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Proxy m -> Proxy n -> monad (MMat a m n (PrimState monad))
+    => proxy m -> proxy n -> monad (MMat a m n (PrimState monad))
 new ~_ ~_ = MM <$> mutNew undefined
 
 {-# INLINE new #-}
 
 -- | Construct a matrix with all zeros.
 zeros :: (PrimMonad monad, PrimType a, Num a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Proxy m -> Proxy n -> monad (MMat a m n (PrimState monad))
+    => proxy m -> proxy n -> monad (MMat a m n (PrimState monad))
 zeros r c = replicate' r c 0
 
 {-# INLINE zeros #-}
 
 -- | Construct a matrix with all ones.
 ones :: (PrimMonad monad, PrimType a, Num a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Proxy m -> Proxy n -> monad (MMat a m n (PrimState monad))
+    => proxy m -> proxy n -> monad (MMat a m n (PrimState monad))
 ones r c = replicate' r c 1
 
 {-# INLINE ones #-}
 
 -- | Construct a identity matrix, square is not required.
 identity :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Proxy m -> Proxy n -> IO (IOMat a m n)
+    => proxy m -> proxy n -> IO (IOMat a m n)
 identity r c = do
     m <- new r c
     unsafeWith m $ \xs r' c' -> I.call $ I.identity xs r' c'
@@ -89,7 +89,7 @@ identity r c = do
 
 -- | Construct a identity matrix, square is not required.
 random :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Proxy m -> Proxy n -> IO (IOMat a m n)
+    => proxy m -> proxy n -> IO (IOMat a m n)
 random r c = do
     m <- new r c
     unsafeWith m $ \xs r' c' -> I.call' $ I.random_ xs r' c'
@@ -99,7 +99,7 @@ random r c = do
 
 -- | Construct a matrix with all given constants.
 replicate' :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Proxy m -> Proxy n -> a -> monad (MMat a m n (PrimState monad))
+    => proxy m -> proxy n -> a -> monad (MMat a m n (PrimState monad))
 replicate' m n v = MM <$> thaw (replicate (integralCast (r * c)) v)
     where r = natVal m
           c = natVal n
@@ -108,7 +108,7 @@ replicate' m n v = MM <$> thaw (replicate (integralCast (r * c)) v)
 
 -- | Get specified element from matrix unsafely.
 (!) :: (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => MMat a m n (PrimState monad) -> (Proxy m, Proxy n) -> monad a
+    => MMat a m n (PrimState monad) -> (proxy m, proxy n) -> monad a
 (!) = uncurry . unsafeRead
 
 {-# INLINE (!) #-}
@@ -142,15 +142,15 @@ times x m = do
 {-# INLINE times #-}
 
 -- | Read value from matrix.
-read :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
-    => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> monad a
+read :: forall monad a m n u v proxy. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
+    => MMat a m n (PrimState monad) -> proxy u -> proxy v -> monad a
 read MM{..} _ _ = mutRead vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE read #-}
 
 -- | Write value to matrix.
-write :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
-    => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> a -> monad ()
+write :: forall monad a m n u v proxy. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
+    => MMat a m n (PrimState monad) -> proxy u -> proxy v -> a -> monad ()
 write MM{..} _ _ = mutWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE write #-}
@@ -171,14 +171,14 @@ write MM{..} _ _ = mutWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 -- {-# INLINE modify #-}
 
-unsafeRead :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
-    => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> monad a
+unsafeRead :: forall monad a m n u v proxy. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
+    => MMat a m n (PrimState monad) -> proxy u -> proxy v -> monad a
 unsafeRead MM{..} _ _ = mutUnsafeRead vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE unsafeRead #-}
 
-unsafeWrite :: forall monad a m n u v. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
-    => MMat a m n (PrimState monad) -> Proxy u -> Proxy v -> a -> monad ()
+unsafeWrite :: forall monad a m n u v proxy. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
+    => MMat a m n (PrimState monad) -> proxy u -> proxy v -> a -> monad ()
 unsafeWrite MM{..} _ _ = mutUnsafeWrite vect (unsafeCoerce (Proxy :: Proxy (u * m + v)))
 
 {-# INLINE unsafeWrite #-}
