@@ -304,7 +304,6 @@ int negative(int type, void *r, const void *src, int row, int column) {
 
 int add(int type, void *r, int m, int n, int k, const void *A, const void *B) {
     int i, loop = m * n;
-    assert(m * k == k * n);
     debug("add is called.");
 #define MAKE_PROG(T, V0, V1, V2, V3, V4, V5)     \
     for (i = 0; i < loop; ++i) {                 \
@@ -317,7 +316,6 @@ int add(int type, void *r, int m, int n, int k, const void *A, const void *B) {
 
 int minus(int type, void *r, int m, int n, int k, const void *A, const void *B) {
     int i, loop = m * n;
-    assert(m * k == k * n);
     debug("minus is called.");
 #define MAKE_PROG(T, V0, V1, V2, V3, V4, V5)     \
     for (i = 0; i < loop; ++i) {                 \
@@ -330,7 +328,6 @@ int minus(int type, void *r, int m, int n, int k, const void *A, const void *B) 
 
 int mult(int type, void *r, int m, int n, int k, const void *A, const void *B) {
     int i, loop = m * n;
-    assert(m == n && k == n);
     debug("mult is called.");
 #define MAKE_PROG(T, V0, V1, V2, V3, V4, V5)     \
     for (i = 0; i < loop; ++i) {                 \
@@ -343,7 +340,6 @@ int mult(int type, void *r, int m, int n, int k, const void *A, const void *B) {
 
 int division(int type, void *r, int m, int n, int k, const void *A, const void *B) {
     int i, loop = m * n;
-    assert(m == n && k == n);
     debug("division is called.");
 #define MAKE_PROG(T, V0, V1, V2, V3, V4, V5)     \
     for (i = 0; i < loop; ++i) {                 \
