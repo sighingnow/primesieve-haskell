@@ -17,7 +17,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Math.Linear.Matrix.Mutable where
+module Math.Linear.Matrix.Mutable
+    ( module Math.Linear.Matrix.Mutable
+    , MutElemWise (..)
+    ) where
 
 import Foundation
 import Foundation.Class.Storable
@@ -32,11 +35,14 @@ import Control.Monad.ST (RealWorld)
 import Foreign.Marshal.Alloc (alloca)
 
 import qualified Math.Linear.Internal as I
+import Math.Linear.ElemWise
 import Math.Linear.Vector
 
 data MMat a (m :: Nat) (n :: Nat) s = MM
     { vect :: MVec a (m * n) s -- ^ data in plain vector.
     }
+
+type instance Element (MMat a m n s) = a
 
 type IOMat a m n = MMat a m n RealWorld
 
@@ -113,33 +119,55 @@ replicate' m n v = MM <$> thaw (replicate (integralCast (r * c)) v)
 
 {-# INLINE (!) #-}
 
--- | Add scalar value to every elements in matrix.
-shift :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => a -> IOMat a m n -> IO ()
-shift x m = do
-    unsafeWith m $
-        \xs r c ->
-             alloca $
-             \p -> do
-                 poke p x
-                 I.call $ I.shift xs p xs r c
-    return ()
-
-{-# INLINE shift #-}
-
--- | Multiply scalar value to every elements in matrix.
-times :: (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => a -> IOMat a m n -> IO ()
-times x m = do
-    unsafeWith m $
-        \xs r c ->
-             alloca $
-             \p -> do
-                 poke p x
-                 I.call $ I.times xs p xs r c
-    return ()
-
-{-# INLINE times #-}
+instance (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n)) => MutElemWise (MMat a m n RealWorld) where
+    -- * tensor and scalar
+    shift' x m = do
+        unsafeWith m $ \xs r c ->
+            alloca $ \p -> do
+                poke p x
+                I.call $ I.shift xs p xs r c
+        return ()
+    times' x m = do
+        unsafeWith m $ \xs r c ->
+            alloca $ \p -> do
+                poke p x
+                I.call $ I.times xs p xs r c
+        return ()
+    -- * negative
+    negative' m = do
+        unsafeWith m $ \xs r c ->
+            I.call $ I.negative xs xs r c
+        return ()
+    -- -- * arithmetic
+    add' m1 m2 = do
+        unsafeWith m1 $ \xs1 r1 c1 ->
+            unsafeWith m2 $ \xs2 _ c2 ->
+                I.call $ I.add xs1 r1 c2 c1 xs1 xs2
+        return ()
+    minus' m1 m2 = do
+        unsafeWith m1 $ \xs1 r1 c1 ->
+            unsafeWith m2 $ \xs2 _ c2 ->
+                I.call $ I.minus xs1 r1 c2 c1 xs1 xs2
+        return ()
+    mult' m1 m2 = do
+        unsafeWith m1 $ \xs1 r1 c1 ->
+            unsafeWith m2 $ \xs2 _ c2 ->
+                I.call $ I.mult xs1 r1 c2 c1 xs1 xs2
+        return ()
+    division' m1 m2 = do
+        unsafeWith m1 $ \xs1 r1 c1 ->
+            unsafeWith m2 $ \xs2 _ c2 ->
+                I.call $ I.division xs1 r1 c2 c1 xs1 xs2
+        return ()
+    -- * extensions
+    logistic' m = do
+        unsafeWith m $ \xs r c ->
+            I.call $ I.logistic xs xs r c
+        return ()
+    logisticd' m = do
+        unsafeWith m $ \xs r c ->
+            I.call $ I.logisticd xs xs r c
+        return ()
 
 -- | Read value from matrix.
 read :: forall monad a m n u v proxy. (PrimMonad monad, PrimType a, KnownNat m, KnownNat n, KnownNat u, KnownNat v, KnownNat (m * n), u <= m, v <= n)
@@ -204,3 +232,8 @@ unsafeWith MM{..} f = withMutableVPtr vect $ \p -> f p row column
           column = integralDownsize $ natVal (Proxy :: Proxy n)
 
 {-# INLINE unsafeWith #-}
+
+withMutableMPtr :: (PrimMonad monad, PrimType a) => MMat a m n (PrimState monad) -> (Ptr a -> monad b) -> monad b
+withMutableMPtr MM{..} = withMutableVPtr vect
+
+{-# INLINE withMutableMPtr #-}

@@ -7,29 +7,27 @@
 --
 -- Random data generator according to some special distribution constraints.
 --
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Math.Numeric.Random where
 
 import Foundation
 import Foundation.Class.Storable (Ptr)
 import Foundation.Collection
-import Foundation.Array.Internal (withPtr, withMutablePtr)
-import Foundation.Foreign
 import Foundation.Primitive
-import Foundation.Random
 
 import GHC.TypeLits
 
 import Prelude (fromIntegral)
-import Foreign.C.String (castCharToCChar)
-import Foreign.Ptr (nullPtr)
 import System.IO.Unsafe (unsafePerformIO)
 
 import qualified Math.Linear.Internal as I
 import Math.Linear.Vector
-import qualified Math.Linear.Matrix.Mutable as Mutable
-import Math.Linear.Matrix (Mat(..), unsafeWith, unsafeOp, unsafeUnaryOp, unsafeFactorizeOp, unsafeDecomposeOp)
+import Math.Linear.Matrix
+import Math.Linear.Matrix.Mutable
 
 -- | Random number generator powered by PCG.
 randInt32 :: IO Int32
@@ -45,6 +43,16 @@ randInt32Arr = do
         c_pcg32_random_array (integralDownsize nlen) parr
     unsafeFreeze arr
   where nlen = CountOf . fromIntegral . natVal $ (Proxy :: Proxy n)
+
+randInt32Mat :: forall m n. (KnownNat m, KnownNat n, KnownNat (m * n)) => IO (Mat Int32 m n)
+randInt32Mat = do
+    mat <- mutNew nlen
+    withMutableMPtr mat $ \pmat ->
+        c_pcg32_random_array (integralDownsize nlen) pmat
+    unsafeFreeze mat
+  where m = natVal (Proxy @m)
+        n = natVal (Proxy @n)
+        nlen = CountOf . fromIntegral $ (m * n)
 
 foreign import ccall unsafe "pcg_random.h pcg32_random_array" c_pcg32_random_array
     :: Int32 -> Ptr Int32 -> IO ()
@@ -62,6 +70,16 @@ randFloatArr = do
         c_pcg32_random_float_array (integralDownsize nlen) parr
     unsafeFreeze arr
   where nlen = CountOf . fromIntegral . natVal $ (Proxy :: Proxy n)
+
+randFloatMat :: forall m n. (KnownNat m, KnownNat n, KnownNat (m * n)) => IO (Mat Float m n)
+randFloatMat = do
+    mat <- mutNew nlen
+    withMutableMPtr mat $ \pmat ->
+        c_pcg32_random_float_array (integralDownsize nlen) pmat
+    unsafeFreeze mat
+  where m = natVal (Proxy @m)
+        n = natVal (Proxy @n)
+        nlen = CountOf . fromIntegral $ (m * n)
 
 foreign import ccall unsafe "pcg_random.h pcg32_random_float_array" c_pcg32_random_float_array
     :: Int32 -> Ptr Float -> IO ()

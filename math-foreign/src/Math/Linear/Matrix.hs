@@ -20,10 +20,14 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Math.Linear.Matrix where
+module Math.Linear.Matrix
+    ( module Math.Linear.Matrix
+    , ElemWise (..)
+    ) where
 
 import Foundation
 import Foundation.Array.Internal (withPtr, withMutablePtr)
@@ -39,6 +43,7 @@ import Foreign.Marshal.Alloc (alloca)
 import qualified Foreign.Storable as Foreign.Storable
 import System.IO.Unsafe (unsafePerformIO)
 
+import Math.Linear.ElemWise
 import qualified Math.Linear.Internal as I
 import Math.Linear.Vector
 import qualified Math.Linear.Matrix.Mutable as Mutable
@@ -46,6 +51,8 @@ import qualified Math.Linear.Matrix.Mutable as Mutable
 newtype Mat a (m :: Nat) (n :: Nat) = M
     { vect :: Vec a (m * n) -- ^ data in plain vector.
     } deriving (Eq, Show)
+
+type instance Element (Mat a m n) = a
 
 -- | Construct an empty matrix.
 empty :: PrimType a => Mat a 0 0
@@ -430,69 +437,46 @@ mean = unsafeOp I.mean
 
 {-# INLINE mean #-}
 
--- | Add scalar value to every elements in matrix.
-shift :: forall a m n. (I.Elem a, Additive a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => a -> Mat a m n -> Mat a m n
-shift x m@M{..} = unsafePerformIO $ do
-    m' <- Mutable.new (Proxy :: Proxy m) (Proxy :: Proxy n)
-    Mutable.unsafeWith m' $ \v' _ _ ->
-        unsafeWith m $ \v row column ->
-            alloca $ \p -> do
-                poke p x
-                I.call $ I.shift v' p v row column
-    unsafeFreeze m'
+-- {-# INLINE [1] shift #-}
 
-{-# INLINE [1] shift #-}
+-- # RULES
+-- "shift/shift" forall a b m. shift a (shift b m) = shift (a + b) m
+--  #
 
-{-# RULES
-"shift/shift" forall a b m. shift a (shift b m) = shift (a + b) m
- #-}
+-- {-# INLINE [1] times #-}
 
--- | Multiply scalar value to every elements in matrix.
-times :: forall a m n. (I.Elem a, Multiplicative a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => a -> Mat a m n -> Mat a m n
-times x m@M {..} = unsafePerformIO $ do
-    m' <- Mutable.new (Proxy :: Proxy m) (Proxy :: Proxy n)
-    Mutable.unsafeWith m' $ \v' _ _ ->
-        unsafeWith m $ \v row column ->
-            alloca $ \p -> do
-                poke p x
-                I.call $ I.times v' p v row column
-    unsafeFreeze m'
+-- # RULES
+-- "times/times" forall a b m. times a (times b m) = times (a * b) m
+--  #
 
-{-# INLINE [1] times #-}
-
-{-# RULES
-"times/times" forall a b m. times a (times b m) = times (a * b) m
- #-}
-
--- | Elementwise addition.
-add :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Mat a m n -> Mat a m n -> Mat a m n
-add m1 m2 = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.add m1 m2
-
-{-# INLINE add #-}
-
--- | Elementwise substraction.
-minus :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Mat a m n -> Mat a m n -> Mat a m n
-minus m1 m2 = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.minus m1 m2
-
-{-# INLINE minus #-}
-
--- | Elementwise multiplication.
-mult :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Mat a m n -> Mat a m n -> Mat a m n
-mult m1 m2 = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.mult m1 m2
-
-{-# INLINE mult #-}
-
--- | Elementwise division for real fractions.
-division :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Mat a m n -> Mat a m n -> Mat a m n
-division m1 m2 = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.division m1 m2
-
-{-# INLINE division #-}
+instance (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n)) => ElemWise (Mat a m n) where
+    -- * tensor and scalar
+    shift x m = unsafePerformIO $ do
+        m' <- Mutable.new (Proxy :: Proxy m) (Proxy :: Proxy n)
+        Mutable.unsafeWith m' $ \v' _ _ ->
+            unsafeWith m $ \v row column ->
+                alloca $ \p -> do
+                    poke p x
+                    I.call $ I.shift v' p v row column
+        unsafeFreeze m'
+    times x m = unsafePerformIO $ do
+        m' <- Mutable.new (Proxy :: Proxy m) (Proxy :: Proxy n)
+        Mutable.unsafeWith m' $ \v' _ _ ->
+            unsafeWith m $ \v row column ->
+                alloca $ \p -> do
+                    poke p x
+                    I.call $ I.times v' p v row column
+        unsafeFreeze m'
+    -- * negative
+    negative = unsafeUnaryOp (Proxy @m) (Proxy @n) I.negative
+    -- * arithmetic
+    add = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.add
+    minus = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.minus
+    mult = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.mult
+    division = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.division
+    -- * extensions
+    logistic = unsafeUnaryOp (Proxy @m) (Proxy @n) I.logistic
+    logisticd = unsafeUnaryOp (Proxy @m) (Proxy @n) I.logisticd
 
 -- | Matrix multiplication WITHOUT bounds check.
 dot :: forall a m k n. (I.Elem a, KnownNat m, KnownNat k, KnownNat n, KnownNat (m * k), KnownNat (k * n), KnownNat (m * n))
@@ -584,6 +568,11 @@ unsafeWith M{..} f = withVPtr vect $ \p -> f p row column
           column = integralDownsize $ natVal (Proxy :: Proxy n)
 
 {-# INLINE unsafeWith #-}
+
+withMPtr :: (PrimMonad monad, PrimType a) => Mat a m n -> (Ptr a -> monad b) -> monad b
+withMPtr M{..} = withVPtr vect
+
+{-# INLINE withMPtr #-}
 
 -- | Take one matrix as argument and only return a scalar, like sum, mean, max and min.
 unsafeOp :: (I.Elem a, Foreign.Storable.Storable b, Storable b, KnownNat m0, KnownNat n0, KnownNat (m0 * n0))
@@ -709,8 +698,6 @@ unsafeDecomposeOp m0 (r1, c1) (r2, c2) (r3, c3) f = unsafePerformIO $ do
 
 {-# INLINE unsafeDecomposeOp #-}
 
-type instance Element (Mat a m n) = a
-
 instance (PrimType a, KnownNat m, KnownNat n) => IsList (Mat a m n) where
     type Item (Mat a m n) = a
     fromList xs
@@ -726,26 +713,6 @@ instance (PrimType a, KnownNat m, KnownNat n) => IsList (Mat a m n) where
               n' = natVal (Proxy :: Proxy n)
               nlen = let CountOf x = length xs in integralUpsize x
     toList M{..} = toList vect
-
--- instance (PrimType a, KnownNat m, KnownNat n) => Collection (Mat a m n) where
---     null M{..} = row == 0 && column == 0
---         where row = natVal (Proxy :: Proxy m)
---               column = natVal (Proxy :: Proxy n)
---     {-# INLINABLE null #-}
---     length M{..} = integralCast (row * column)
---         where row = natVal (Proxy :: Proxy m)
---               column = natVal (Proxy :: Proxy n)
---     # INLINABLE length #
---     elem x M{..} = elem x vect
---     {-# INLINABLE elem #-}
---     minimum m = let M{..} = getNonEmpty m minimum . nonEmpty_ . vect . getNonEmpty
---     {-# INLINABLE minimum #-}
---     maximum m = maximum . nonEmpty_ . vect . getNonEmpty
---     {-# INLINABLE maximum #-}
---     all predicate M{..} = all predicate vect
---     {-# INLINABLE all #-}
---     any predicate M{..} = any predicate vect
---     {-# INLINABLE any #-}
 
 deriving instance NormalForm (Mat a m n)
 

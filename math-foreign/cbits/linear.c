@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 #include "include/linear.h"
 
@@ -290,6 +291,17 @@ int times(int type, void *r, void *x, const void *src, int row, int column) {
     return 0;
 }
 
+int negative(int type, void *r, const void *src, int row, int column) {
+    int i;
+#define MAKE_PROG(T, V0, V1, V2, V3, V4, V5) \
+    for (i = 0; i < row * column; ++i) { \
+        ((T *)r)[i] = - ((T *)src)[i]; \
+    }
+    MAKE_API(NULL, NULL, NULL, NULL, NULL, NULL);
+#undef MAKE_PROG
+    return 0;
+}
+
 int add(int type, void *r, int m, int n, int k, const void *A, const void *B) {
     int i, loop = m * n;
     assert(m * k == k * n);
@@ -565,8 +577,8 @@ int eigen(int type, void *A, int r0, int c0, void *Lambda, int r1, int c1, void 
 
     assert(r0 == c0);             // square matrix.
     assert(r1 == 1 && c1 == c0);  // Lambda is a vector.
-    assert(r2 == 0 || r0 == r2 && r0 == r3);
-    assert(r3 == 0 || c0 == c2 && r0 == c3);
+    assert(r2 == 0 || (r0 == r2 && r0 == r3));
+    assert(r3 == 0 || (c0 == c2 && r0 == c3));
 
     char jobvl = r2 == 0 ? 'N' : 'V';
     char jobvr = r3 == 0 ? 'N' : 'V';
@@ -661,7 +673,7 @@ int eigenh(int type, void *A, int r0, int c0, void *Lambda, int r1, int c1, void
 
     assert(r0 == c0);             // square matrix.
     assert(r1 == 1 && c1 == c0);  // Lambda is a vector.
-    assert(r2 == 0 || r0 == r2 && c0 == c2);
+    assert(r2 == 0 || (r0 == r2 && c0 == c2));
 
     char jobz = r2 == 0 ? 'N' : 'V';
 
@@ -931,6 +943,62 @@ int linspace(int type, void *r, float const start, float const end, int size) {
         ((T *)r)[i] = VAL; \
     }
     MAKE_API(sep, val, NULL, NULL, NULL, NULL);
+#undef MAKE_PROG
+
+    return 0;
+}
+
+// element-wise functions.
+
+int logistic(int type, void *r, const void *A, int row, int column) {
+    int i;
+
+    const float sunit = 1.;
+    const double dunit = 1.;
+    const float complex cunit = 1. + 0. * I;
+    const double complex zunit = 1. + 0. * I;
+
+    switch (type) {
+        case 1:
+            for (int i = 0; i < row * column; ++i) {
+                ((float *)r)[i] = sunit / (sunit + exp(- ((float *)A)[i]));
+            }
+            break;
+        case 2:
+            for (int i = 0; i < row * column; ++i) {
+                ((double *)r)[i] = dunit / (dunit + exp(- ((double *)A)[i]));
+            }
+            break;
+        case 3:
+            for (int i = 0; i < row * column; ++i) {
+                ((float complex *)r)[i] = cunit / (cunit + cexp(- ((float complex *)A)[i]));
+            }
+            break;
+        case 4:
+            for (int i = 0; i < row * column; ++i) {
+                ((double complex *)r)[i] = zunit / (zunit + cexp(- ((double complex *)A)[i]));
+            }
+            break;
+        default: break;
+    }
+    return 0;
+}
+
+int logisticd(int type, void *r, const void *A, int row, int column) {
+    int i;
+
+    const float sunit = 1.;
+    const double dunit = 1.;
+    const float complex cunit = 1. + 0. * I;
+    const double complex zunit = 1. + 0. * I;
+
+    logistic(type, r, A, row, column);
+
+#define MAKE_PROG(T, UNIT, V1, V2, V3, V4, V5) \
+    for (i = 0; i < row * column; ++i) { \
+        ((T *)r)[i] = ((T *)r)[i] * (UNIT - ((T *)r)[i]); \
+    }
+    MAKE_API(unit, NULL, NULL, NULL, NULL, NULL);
 #undef MAKE_PROG
 
     return 0;

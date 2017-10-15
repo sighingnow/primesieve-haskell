@@ -20,6 +20,7 @@ int upper(int type, void *r, const void *src, int row, int column);
 
 int shift(int type, void *r, void *x, const void *src, int row, int column);
 int times(int type, void *r, void *x, const void *src, int row, int column);
+int negative(int type, void *r, const void *src, int row, int column);
 int add(int type, void *r, int m, int n, int k, const void *A, const void *B);
 int minus(int type, void *r, int m, int n, int k, const void *A, const void *B);
 int mult(int type, void *r, int m, int n, int k, const void *A, const void *B);
@@ -54,6 +55,11 @@ int schur(int type, void *rm1, int r1, int c1, void *rm2, int r2, int c2, void *
 int transform(int type, void *r, int row, int column, const void *A, const void *v);
 
 int linspace(int type, void *r, float const start, float const end, int size);
+
+// element-wise functions.
+
+int logistic(int type, void *r, const void *A, int row, int column);
+int logisticd(int type, void *r, const void *A, int row, int column);
 
 #if defined(__cplusplus)
 }

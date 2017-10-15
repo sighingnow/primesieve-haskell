@@ -20,6 +20,7 @@ library
     Math.Linear.Matrix.Naive
     Math.Linear.Matrix.Mutable
     Math.Linear.Matrix.Mutable.Naive
+    Math.Linear.ElemWise
     Math.Linear.Linalg
     Math.Linear.Linalg.Naive
     Math.Numeric.Random

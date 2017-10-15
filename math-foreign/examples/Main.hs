@@ -21,8 +21,8 @@ import Plugin.Intuition.KnownNat
 app2 :: IO ()
 app2 = do
     m <- MM.ones Proxy Proxy :: IO (MM.IOMat Float 3 4)
-    MM.shift 4 m
-    MM.times 3 m
+    MM.shift' 4 m
+    MM.times' 3 m
     -- putStrLn . show $ m
 
 -- app3 :: IO ()

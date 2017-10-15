@@ -101,6 +101,8 @@ call' status = status >>= \err -> when (err /= 0) $ error ("ffi error, return " 
 #ccall shift,       "Ptr a -> Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall times,       "Ptr a -> Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
 
+#ccall negative,    "Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
+
 #ccall add,         "Ptr a -> Int32 -> Int32 -> Int32 -> Ptr a -> Ptr a -> Int32"
 #ccall minus,       "Ptr a -> Int32 -> Int32 -> Int32 -> Ptr a -> Ptr a -> Int32"
 #ccall mult,        "Ptr a -> Int32 -> Int32 -> Int32 -> Ptr a -> Ptr a -> Int32"
@@ -127,6 +129,11 @@ call' status = status >>= \err -> when (err /= 0) $ error ("ffi error, return " 
 #ccall transform,   "Ptr a -> Int32 -> Int32 -> Ptr a -> Ptr a -> Int32"
 
 #ccall linspace,    "Ptr a -> Float -> Float -> Int32 -> Int32"
+
+-- Element-wise functions.
+
+#ccall logistic,    "Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
+#ccall logisticd,   "Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
 
 {------------------------------------------------------------------------------
 -- Orphan instances for Int32
