@@ -1,6 +1,13 @@
 flags: {}
 extra-package-dbs: []
 packages:
-- primesieve
-extra-deps: []
-resolver: nightly-0000-01-01
+# - algo
+# - primesieve
+- intuition-plugin
+- stat-ml
+- math-foreign
+- xgboost-haskell
+- opt-solver
+extra-deps:
+- z3-4.1.1
+resolver: nightly-2017-10-11
