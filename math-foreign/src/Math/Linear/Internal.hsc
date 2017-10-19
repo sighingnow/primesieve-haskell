@@ -132,6 +132,7 @@ call' status = status >>= \err -> when (err /= 0) $ error ("ffi error, return " 
 
 -- Element-wise functions.
 
+#ccall replicate,   "Ptr a -> Ptr a -> Int32 -> Int32"
 #ccall logistic,    "Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
 #ccall logisticd,   "Ptr a -> Ptr a -> Int32 -> Int32 -> Int32"
 

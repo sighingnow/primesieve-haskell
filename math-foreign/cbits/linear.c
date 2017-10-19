@@ -944,6 +944,18 @@ int linspace(int type, void *r, float const start, float const end, int size) {
     return 0;
 }
 
+int replicate(int type, void *r, void const *value, int size) {
+    int i;
+#define MAKE_PROG(T, V0, V1, V2, V3, V4, V5) \
+    for (i = 0; i < size; ++i) {               \
+        ((T *)r)[i] = *((T *)value);               \
+    }
+    MAKE_API(NULL, NULL, NULL, NULL, NULL, NULL)
+#undef MAKE_PROG
+    return 0;
+}
+
+
 // element-wise functions.
 
 int logistic(int type, void *r, const void *A, int row, int column) {

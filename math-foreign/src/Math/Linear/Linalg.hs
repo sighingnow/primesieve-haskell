@@ -230,7 +230,7 @@ schur M{..} = undefined
 
 -- | Linear transformation, /transform A x = Ax/.
 transform :: forall a m n. (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n))
-    => Mat a m n -> Vec a n -> Vec a n
+    => Mat a m n -> Vec a n -> Vec a m
 transform m@M{..} v
     | row * column /= integralUpsize nlen' = error "Linalg.transform: the given size doesn't match"
     | otherwise = unsafePerformIO $ do

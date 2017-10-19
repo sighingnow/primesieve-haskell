@@ -14,6 +14,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -159,6 +160,14 @@ instance (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n)) => MutElemWise (MM
             unsafeWith m2 $ \xs2 _ c2 ->
                 I.call $ I.division xs1 r1 c2 c1 xs1 xs2
         return ()
+    -- * data generation
+    constreplic' x = do
+        m' <- new (Proxy @m) (Proxy @n)
+        unsafeWith m' $ \pm' row column ->
+            alloca $ \p -> do
+                poke p x
+                I.call $ I.replicate pm' p (row * column)
+        return m'
     -- * extensions
     logistic' m = do
         unsafeWith m $ \xs r c ->

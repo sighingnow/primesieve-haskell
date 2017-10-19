@@ -474,6 +474,14 @@ instance (I.Elem a, KnownNat m, KnownNat n, KnownNat (m * n)) => ElemWise (Mat a
     minus = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.minus
     mult = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.mult
     division = unsafeBinaryOp (Proxy :: Proxy m) (Proxy :: Proxy n) I.division
+    -- * data generation
+    constreplic x = unsafePerformIO $ do
+        m' <- Mutable.new (Proxy @m) (Proxy @n)
+        Mutable.unsafeWith m' $ \pm' row column ->
+            alloca $ \p -> do
+                poke p x
+                I.call $ I.replicate pm' p (row * column)
+        unsafeFreeze m'
     -- * extensions
     logistic = unsafeUnaryOp (Proxy @m) (Proxy @n) I.logistic
     logisticd = unsafeUnaryOp (Proxy @m) (Proxy @n) I.logisticd
@@ -550,6 +558,9 @@ inner' (V v1) (V v2) = unsafePerformIO $
     n = integralDownsize $ min (length v1) (length v2)
 
 {-# INLINE inner' #-}
+
+-- slice :: I.Elem a
+    -- => Mat a m n -> Proxy u -> Proxy v -> Mat a m n
 
 -- -- | Copy the matrix data and drop extra memory.
 -- force :: forall a m n. (PrimType a, KnownNat m, KnownNat n)

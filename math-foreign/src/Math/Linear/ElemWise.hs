@@ -17,6 +17,8 @@ class ElemWise tensor where
   minus :: tensor -> tensor -> tensor
   mult :: tensor -> tensor -> tensor
   division :: tensor -> tensor -> tensor
+  -- * data generation
+  constreplic :: Element tensor -> tensor
   -- * extensions
   logistic :: tensor -> tensor
   logisticd :: tensor -> tensor
@@ -32,6 +34,8 @@ class MutElemWise tensor where
   minus' :: tensor -> tensor -> IO ()
   mult' :: tensor -> tensor -> IO ()
   division' :: tensor -> tensor -> IO ()
+  -- * data generation
+  constreplic' :: Element tensor -> IO tensor
   -- * extensions
   logistic' :: tensor -> IO ()
   logisticd' :: tensor -> IO ()

@@ -58,6 +58,7 @@ int linspace(int type, void *r, float const start, float const end, int size);
 
 // element-wise functions.
 
+int replicate(int type, void *r, void const *value, int size);
 int logistic(int type, void *r, const void *A, int row, int column);
 int logisticd(int type, void *r, const void *A, int row, int column);
 

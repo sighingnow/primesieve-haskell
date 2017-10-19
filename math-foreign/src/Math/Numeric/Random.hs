@@ -37,19 +37,25 @@ foreign import ccall unsafe "pcg_basic.h pcg32_random" c_pcg32_random
     :: IO Int32
 
 randInt32Arr :: forall n. KnownNat n => IO (Vec Int32 n)
-randInt32Arr = do
+randInt32Arr = randInt32Arr' >>= unsafeFreeze
+
+randInt32Arr' :: forall n. KnownNat n => IO (IOVec Int32 n)
+randInt32Arr' = do
     arr <- mutNew nlen
     withMutableVPtr arr $ \parr ->
         c_pcg32_random_array (integralDownsize nlen) parr
-    unsafeFreeze arr
+    return arr
   where nlen = CountOf . fromIntegral . natVal $ (Proxy :: Proxy n)
 
 randInt32Mat :: forall m n. (KnownNat m, KnownNat n, KnownNat (m * n)) => IO (Mat Int32 m n)
-randInt32Mat = do
+randInt32Mat = randInt32Mat' >>= unsafeFreeze
+
+randInt32Mat' :: forall m n. (KnownNat m, KnownNat n, KnownNat (m * n)) => IO (IOMat Int32 m n)
+randInt32Mat' = do
     mat <- mutNew nlen
     withMutableMPtr mat $ \pmat ->
         c_pcg32_random_array (integralDownsize nlen) pmat
-    unsafeFreeze mat
+    return mat
   where m = natVal (Proxy @m)
         n = natVal (Proxy @n)
         nlen = CountOf . fromIntegral $ (m * n)
@@ -64,19 +70,25 @@ foreign import ccall unsafe "pcg_random.h pcg32_random_float" c_pcg32_random_flo
     :: IO Float
 
 randFloatArr :: forall n. KnownNat n => IO (Vec Float n)
-randFloatArr = do
+randFloatArr = randFloatArr' >>= unsafeFreeze
+
+randFloatArr' :: forall n. KnownNat n => IO (IOVec Float n)
+randFloatArr' = do
     arr <- mutNew nlen
     withMutableVPtr arr $ \parr ->
         c_pcg32_random_float_array (integralDownsize nlen) parr
-    unsafeFreeze arr
+    return arr
   where nlen = CountOf . fromIntegral . natVal $ (Proxy :: Proxy n)
 
 randFloatMat :: forall m n. (KnownNat m, KnownNat n, KnownNat (m * n)) => IO (Mat Float m n)
-randFloatMat = do
+randFloatMat = randFloatMat' >>= unsafeFreeze
+
+randFloatMat' :: forall m n. (KnownNat m, KnownNat n, KnownNat (m * n)) => IO (IOMat Float m n)
+randFloatMat' = do
     mat <- mutNew nlen
     withMutableMPtr mat $ \pmat ->
         c_pcg32_random_float_array (integralDownsize nlen) pmat
-    unsafeFreeze mat
+    return mat
   where m = natVal (Proxy @m)
         n = natVal (Proxy @n)
         nlen = CountOf . fromIntegral $ (m * n)

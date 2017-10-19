@@ -37,6 +37,8 @@ newtype Vec a (n :: Nat) = V { vect :: UArray a } deriving (Eq, Ord, Show)
 
 newtype MVec a (n :: Nat) s = MV { vect :: MUArray a s }
 
+type IOVec a (n :: Nat) = MVec a n RealWorld
+
 type instance Element (Vec a n) = a
 
 type instance Element (MVec a n s) = a
@@ -148,6 +150,14 @@ instance (I.Elem a, KnownNat n) => ElemWise (Vec a n) where
                 withVPtr v2 $ \pv2 ->
                     I.call $ I.division pv' 1 nlen 1 pv1 pv2
         unsafeFreeze v'
+    -- * data generation
+    constreplic x = unsafePerformIO $ do
+        v' <- mutNew undefined
+        withMutableVPtr' v' $ \pv' nlen ->
+            alloca $ \p -> do
+                poke p x
+                I.call $ I.replicate pv' p nlen
+        unsafeFreeze v'
     -- * extensions
     logistic v = unsafePerformIO $ do
         v' <- mutNew undefined
@@ -202,6 +212,14 @@ instance (I.Elem a, KnownNat n) => MutElemWise (MVec a n RealWorld) where
             withMutableVPtr v2 $ \pv2 ->
                 I.call $ I.division pv1 1 nlen 1 pv1 pv2
         return ()
+    -- * data generation
+    constreplic' x = do
+        v' <- mutNew undefined
+        withMutableVPtr' v' $ \pv' nlen ->
+            alloca $ \p -> do
+                poke p x
+                I.call $ I.replicate pv' p nlen
+        return v'
     -- * extensions
     logistic' v = do
         withMutableVPtr' v $ \pv nlen ->
