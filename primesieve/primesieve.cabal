@@ -24,7 +24,7 @@ library
                      , OverloadedStrings
   build-depends:       base >= 4.7 && < 5
                      , foundation
-  extra-libraries:     primesieve
+  extra-libraries:     primesieve, libstdc++
 
 executable prime-count
   hs-source-dirs:      example
@@ -35,7 +35,6 @@ executable prime-count
   build-depends:       base >= 4.7 && < 5
                      , foundation
                      , primesieve
-  extra-libraries:     primesieve
 
 executable prime-example
   hs-source-dirs:      example
@@ -46,4 +45,3 @@ executable prime-example
   build-depends:       base >= 4.7 && < 5
                      , foundation
                      , primesieve
-  extra-libraries:     primesieve
