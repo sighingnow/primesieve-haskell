@@ -1,17 +1,21 @@
 {-# OPTIONS_GHC -Wno-missing-methods #-}
-{-# OPTIONS_GHC -Wno-missing-pattern-synonym-signatures #-}
-{-# OPTIONS_GHC -Wno-missing-signatures #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Math.Prime.FastSieve.FFI where
 
+#include "MachDeps.h"
+
+import Basement.Types.Ptr (Ptr (..))
+import Data.Coerce (coerce)
 import Foundation
 import Foundation.Foreign
 import Foundation.Class.Storable
+import Foundation.Primitive (PrimMonad, primAddrRead, primAddrWrite)
 import Foundation.String (fromBytesUnsafe)
+import GHC.Exts (Addr#)
 
 import Foreign.Marshal.Alloc (alloca)
 
@@ -52,7 +56,24 @@ instance Prime Word64 where
     tcode _ = UINT64
 
 -- | Orphan instance for CSize as Storable.
-instance Storable CSize
+instance Storable CSize where
+    peek (Ptr addr) = primAddrRead addr (Offset 0)
+    poke (Ptr addr) = primAddrWrite addr (Offset 0)
+
+#if WORD_SIZE_IN_BITS == 64
+type CSizeUnderlying = Word64
+#else
+type CSizeUnderlying = Word32
+#endif
+instance PrimType CSize where
+    primAddrRead addr offset =
+        coerce <$> primAddrRead addr (coerce offset :: Offset CSizeUnderlying)
+
+    primAddrWrite addr offset val =
+         primAddrWrite
+             addr
+             (coerce offset :: Offset CSizeUnderlying)
+             (coerce val :: CSizeUnderlying)
 
 foreign import ccall unsafe "primesieve_generate_primes" c_generate_primes
     :: Word64 -> Word64 -> Ptr CSize -> CInt -> IO (Ptr ())
