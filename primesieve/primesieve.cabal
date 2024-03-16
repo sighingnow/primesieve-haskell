@@ -23,8 +23,9 @@ library
   default-extensions:  NoImplicitPrelude
                      , OverloadedStrings
   build-depends:       base >= 4.7 && < 5
+                     , basement
                      , foundation
-  extra-libraries:     primesieve, libstdc++
+  extra-libraries:     primesieve, stdc++
 
 executable prime-count
   hs-source-dirs:      example
