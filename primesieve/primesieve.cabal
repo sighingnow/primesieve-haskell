@@ -1,5 +1,5 @@
 name:                primesieve
-version:             0.1.0.1
+version:             0.2.0
 synopsis:            FFI bindings for the primesieve library.
 description:         FFI bindings for the primesieve library.
 homepage:            https://github.com/sighingnow/computations/tree/master/primesieve#readme
