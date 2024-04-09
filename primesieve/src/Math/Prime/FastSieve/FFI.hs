@@ -1,25 +1,21 @@
-{-# OPTIONS_GHC -Wno-missing-methods #-}
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Math.Prime.FastSieve.FFI where
 
-#include "MachDeps.h"
-
-import Basement.Types.Ptr (Ptr (..))
-import Data.Coerce (coerce)
-import Foundation
-import Foundation.Foreign
-import Foundation.Class.Storable
-import Foundation.Primitive (PrimMonad, primAddrRead, primAddrWrite)
-import Foundation.String (fromBytesUnsafe)
-import GHC.Exts (Addr#)
-
+import Data.Int (Int16, Int32, Int64)
+import Data.Proxy (Proxy (..))
+import Data.Vector.Storable (Vector, unsafeFromForeignPtr0)
+import Data.Word (Word16, Word32, Word64)
+import Foreign (castFunPtr, castPtr, Ptr)
+import Foreign.C (CInt (..), CSize (..), CChar (..))
+import Foreign.C.ConstPtr (ConstPtr (..))
+import Foreign.C.String (peekCString)
+import Foreign.ForeignPtr (newForeignPtr, FinalizerPtr)
 import Foreign.Marshal.Alloc (alloca)
+import Foreign.Storable (peek)
 
-class (PrimType ty, StorableFixed ty) => Prime ty where
+class Prime ty where
     tcode :: Proxy ty -> CInt
 
 pattern SHORT = 0
@@ -54,26 +50,6 @@ instance Prime Word32 where
 
 instance Prime Word64 where
     tcode _ = UINT64
-
--- | Orphan instance for CSize as Storable.
-instance Storable CSize where
-    peek (Ptr addr) = primAddrRead addr (Offset 0)
-    poke (Ptr addr) = primAddrWrite addr (Offset 0)
-
-#if WORD_SIZE_IN_BITS == 64
-type CSizeUnderlying = Word64
-#else
-type CSizeUnderlying = Word32
-#endif
-instance PrimType CSize where
-    primAddrRead addr offset =
-        coerce <$> primAddrRead addr (coerce offset :: Offset CSizeUnderlying)
-
-    primAddrWrite addr offset val =
-         primAddrWrite
-             addr
-             (coerce offset :: Offset CSizeUnderlying)
-             (coerce val :: CSizeUnderlying)
 
 foreign import ccall unsafe "primesieve_generate_primes" c_generate_primes
     :: Word64 -> Word64 -> Ptr CSize -> CInt -> IO (Ptr ())
@@ -133,31 +109,32 @@ foreign import ccall unsafe "primesieve_set_num_threads" c_set_num_threads
 foreign import ccall unsafe "primesieve_free" c_primesieve_free
     :: Ptr () -> IO ()
 
+foreign import ccall unsafe "&primesieve_free" c_primesieve_free_ptr
+    :: FinalizerPtr ()
+
 foreign import ccall unsafe "primesieve_version" c_version
-    :: IO (Ptr Word8)
+    :: IO (ConstPtr CChar)
 
 -- | Get an array with the primes inside the interval [start, stop].
 generatePrimes :: forall ty. Prime ty
     => Word64           -- ^ start
     -> Word64           -- ^ end
-    -> IO (UArray ty)
+    -> IO (Vector ty)
 generatePrimes start end = alloca $ \psz -> do
-    p <- c_generate_primes start end psz (tcode (Proxy :: Proxy ty))
+    p <- castPtr <$> c_generate_primes start end psz (tcode (Proxy :: Proxy ty))
     sz <- peek psz
-    arr <- peekArray (CountOf . fromIntegral $ sz) (castPtr p)
-    c_primesieve_free p -- free the memory allocated by primesieve.
-    return arr
+    foreignPtr <- newForeignPtr (castFunPtr c_primesieve_free_ptr) p
+    pure (unsafeFromForeignPtr0 foreignPtr (fromIntegral sz))
 
 -- | Get an array with the first n primes >= start.
 generateNPrimes :: forall ty. Prime ty
     => Word64           -- ^ n
     -> Word64           -- ^ start
-    -> IO (UArray ty)
+    -> IO (Vector ty)
 generateNPrimes n start = do
-    p <- c_generate_n_primes n start (tcode (Proxy :: Proxy ty))
-    arr <- peekArray (CountOf . fromIntegral $ n) (castPtr p)
-    c_primesieve_free p -- free the memory allocated by primesieve.
-    return arr
+    p <- castPtr <$> c_generate_n_primes n start (tcode (Proxy :: Proxy ty))
+    foreignPtr <- newForeignPtr (castFunPtr c_primesieve_free_ptr) p
+    pure (unsafeFromForeignPtr0 foreignPtr (fromIntegral n))
 
 -- | Find the nth prime.
 --
@@ -270,4 +247,4 @@ setNumThreads = c_set_num_threads . fromIntegral
 
 -- | Get the primesieve version number, in the form "i.j".
 primesieveVersion :: IO String
-primesieveVersion = c_version >>= (fromBytesUnsafe <$>) . peekArrayEndedBy 0
+primesieveVersion = c_version >>= peekCString . unConstPtr
