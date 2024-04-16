@@ -1,5 +1,3 @@
-import Foundation
-
 import Math.Prime.FastSieve
 
 -- Test the results of prime count.
