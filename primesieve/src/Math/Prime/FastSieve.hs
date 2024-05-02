@@ -18,6 +18,10 @@ module Math.Prime.FastSieve
     , setSieveSize
     , setNumThreads
     , primesieveVersion
+    , primes
+    , primesFrom
+    , primesTo
+    , primesFromTo
     ) where
 
 import Math.Prime.FastSieve.FFI

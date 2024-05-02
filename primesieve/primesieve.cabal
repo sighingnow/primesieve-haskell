@@ -15,6 +15,8 @@ extra-source-files:  README.md
 
 library
   hs-source-dirs:      src
+  c-sources:
+    cbits/primesieve_iterator_size.c
   exposed-modules:
     Math.Prime.FastSieve
   other-modules:

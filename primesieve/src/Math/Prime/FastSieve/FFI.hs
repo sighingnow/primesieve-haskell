@@ -1,19 +1,22 @@
+{-# LANGUAGE CApiFFI #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Math.Prime.FastSieve.FFI where
 
+import Control.Monad (void)
 import Data.Int (Int16, Int32, Int64)
 import Data.Proxy (Proxy (..))
 import Data.Vector.Storable (Vector, unsafeFromForeignPtr0)
 import Data.Word (Word16, Word32, Word64)
-import Foreign (castFunPtr, castPtr, Ptr)
+import Foreign (addForeignPtrFinalizer, castFunPtr, castPtr, mallocForeignPtrBytes, withForeignPtr, Ptr)
 import Foreign.C (CInt (..), CSize (..), CChar (..))
 import Foreign.C.ConstPtr (ConstPtr (..))
 import Foreign.C.String (peekCString)
 import Foreign.ForeignPtr (newForeignPtr, FinalizerPtr)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Storable (peek)
+import System.IO.Unsafe (unsafeInterleaveIO, unsafePerformIO)
 
 class Prime ty where
     tcode :: Proxy ty -> CInt
@@ -114,6 +117,32 @@ foreign import ccall unsafe "&primesieve_free" c_primesieve_free_ptr
 
 foreign import ccall unsafe "primesieve_version" c_version
     :: IO (ConstPtr CChar)
+
+data PrimesieveIterator
+
+foreign import ccall unsafe "primesieve_iterator_size"
+  c_iterator_size :: CSize
+
+foreign import ccall unsafe "primesieve_init"
+  c_init :: Ptr PrimesieveIterator -> IO ()
+
+foreign import ccall unsafe "primesieve_free_iterator"
+  c_free_iterator :: Ptr PrimesieveIterator -> IO ()
+
+foreign import ccall unsafe "&primesieve_free_iterator"
+  c_free_iterator_ptr :: FinalizerPtr PrimesieveIterator
+
+foreign import ccall unsafe "primesieve_jump_to"
+  c_jump_to :: Ptr PrimesieveIterator -> Word64 -> Word64 -> IO ()
+
+-- primesieve_next_prime/primesieve_prev_prime must imported via capi since they
+-- are declared "static inline" in primesieve/iterator.h, and cannot be imported
+-- via ccall.
+foreign import capi "primesieve/iterator.h primesieve_next_prime"
+  c_next_prime :: Ptr PrimesieveIterator -> IO Word64
+
+foreign import capi "primesieve/iterator.h primesieve_prev_prime"
+  c_prev_prime :: Ptr PrimesieveIterator -> IO Word64
 
 -- | Get an array with the primes inside the interval [start, stop].
 generatePrimes :: forall ty. Prime ty
@@ -248,3 +277,34 @@ setNumThreads = c_set_num_threads . fromIntegral
 -- | Get the primesieve version number, in the form "i.j".
 primesieveVersion :: IO String
 primesieveVersion = c_version >>= peekCString . unConstPtr
+
+-- | A list of the prime numbers.
+primes :: [Word64]
+primes = primesFrom 0
+
+-- | Generate primes up to a limit, inclusive.
+primesTo :: Word64 -> [Word64]
+primesTo = primesFromTo 0
+
+-- | Generate primes from a starting number, inclusive.
+primesFrom :: Word64 -> [Word64]
+primesFrom start = primesFromTo start c_get_max_stop
+
+-- | Generate primes between a start and end, inclusive.
+primesFromTo :: Word64 -> Word64 -> [Word64]
+primesFromTo start stop = unsafePerformIO $ do
+  iterForeignPtr <- mallocForeignPtrBytes (fromIntegral c_iterator_size)
+  addForeignPtrFinalizer c_free_iterator_ptr iterForeignPtr
+  withForeignPtr iterForeignPtr $ \iterPtr -> do
+    void (c_init iterPtr)
+    c_jump_to iterPtr start stop
+  iterateIO stop (withForeignPtr iterForeignPtr c_next_prime)
+
+{-# NOINLINE primesFromTo #-}
+
+iterateIO :: Word64 -> IO Word64 -> IO [Word64]
+iterateIO stop mx = do
+  x <- mx
+  if x > stop
+    then pure []
+    else (x :) <$> unsafeInterleaveIO (iterateIO stop mx)
