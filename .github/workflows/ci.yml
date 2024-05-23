@@ -15,7 +15,7 @@ jobs:
         id: set-matrix
         uses: kleidukos/get-tested@v0.1.7.0
         with:
-          cabal-file: primesieve/primesieve.cabal
+          cabal-file: primesieve.cabal
           ubuntu-version: latest
           version: 0.1.7.0
   cabal_build:
@@ -26,9 +26,6 @@ jobs:
     strategy:
       matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
       fail-fast: false
-    defaults:
-      run:
-        working-directory: ./primesieve
     steps:
       - uses: actions/checkout@v4
       - uses: haskell-actions/setup@v2
